@@ -23,7 +23,15 @@
 				</configuration>
 			</plugin>
 		</plugins>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>false</filtering>
+			</resource>
+		</resources>
+
 	</build>
+
 
 	<properties>
 		<lwjgl.version>3.2.0</lwjgl.version>
@@ -183,6 +191,14 @@
 			<artifactId>jcudnn</artifactId>
 			<version>0.9.2</version>
 		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.joml/joml -->
+		<dependency>
+			<groupId>org.joml</groupId>
+			<artifactId>joml</artifactId>
+			<version>1.9.11</version>
+		</dependency>
+
 
 	</dependencies>
 </project>
