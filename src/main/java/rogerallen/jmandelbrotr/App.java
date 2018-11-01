@@ -45,21 +45,20 @@ public class App {
 	private int window_height = 800;
 	private boolean window_resized = false;
 
-	private int vao;
+	private int verts;
 	private int basic_prog;
 	private int basic_prog_a_position;
 	private int basic_prog_a_texCoords;
 	private int basic_prog_u_cameraToView;
-	
+
 	private Matrix4f cameraToView = new Matrix4f();
 
-	GLCapabilities caps;
-	// GLFWKeyCallback keyCallback;
-	Callback debugProc;
+	private GLCapabilities caps;
+	private Callback debugProc;
 
 	public static void main(String[] args) {
 
-		// Simplest, stupidest proof cuda works. FIXME
+		// Simplest, stupidest proof cuda works. FIXME / TODO
 		Pointer pointer = new Pointer();
 		JCuda.cudaMalloc(pointer, 4);
 		System.out.println("Pointer: " + pointer);
@@ -83,93 +82,85 @@ public class App {
 	}
 
 	private void init() throws IOException {
-		// Setup an error callback. The default implementation
-		// will print the error message in System.err.
-		GLFWErrorCallback.createPrint(System.err).set();
+		// init GLFW stuff
+		initWindow();
 
-		// Initialize GLFW. Most GLFW functions will not work before doing this.
-		if (!glfwInit())
-			throw new IllegalStateException("Unable to initialize GLFW");
-
-		// Configure GLFW
-		glfwDefaultWindowHints(); // optional, the current window hints are already the default
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // the window will stay hidden after creation
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
-
-		// Create the window
-		window = glfwCreateWindow(window_width, window_height, WINDOW_TITLE, NULL, NULL);
-		if (window == NULL)
-			throw new RuntimeException("Failed to create the GLFW window");
-
-		// Setup a key callback. It will be called every time a key is pressed, repeated
-		// or released.
+		// callbacks
 		glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
-			if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE)
-				glfwSetWindowShouldClose(window, true); // We will detect this in the rendering loop
+			if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
+				glfwSetWindowShouldClose(window, true);
+			}
 		});
-
-		// setup resize callbacks
 		glfwSetFramebufferSizeCallback(window, (long window, int width, int height) -> {
 			if (width > 0 && height > 0 && (App.this.window_width != width || App.this.window_height != height)) {
 				App.this.window_width = width;
 				App.this.window_height = height;
 				App.this.window_resized = true;
 			}
-
 		});
 
-		// Get the thread stack and push a new frame
-		try (MemoryStack stack = stackPush()) {
-			IntBuffer pWidth = stack.mallocInt(1); // int*
-			IntBuffer pHeight = stack.mallocInt(1); // int*
-
-			// Get the window size passed to glfwCreateWindow
-			glfwGetWindowSize(window, pWidth, pHeight);
-
-			// Get the resolution of the primary monitor
-			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-			// Center the window
-			glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2, (vidmode.height() - pHeight.get(0)) / 2);
-		} // the stack frame is popped automatically
-
-		// Make the OpenGL context current
-		glfwMakeContextCurrent(window);
-		// Enable v-sync
-		glfwSwapInterval(1);
-
-		// Make the window visible
-		glfwShowWindow(window);
-
+		// init GL stuff
 		caps = GL.createCapabilities();
 		debugProc = GLUtil.setupDebugMessageCallback();
+		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
 		initTexture();
 		initProgram();
 		initVerts();
 
 	}
 
+	private void initWindow() {
+		GLFWErrorCallback.createPrint(System.err).set();
+
+		if (!glfwInit())
+			throw new IllegalStateException("Unable to initialize GLFW");
+
+		glfwDefaultWindowHints();
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+		// Create the window
+		window = glfwCreateWindow(window_width, window_height, WINDOW_TITLE, NULL, NULL);
+		if (window == NULL)
+			throw new RuntimeException("Failed to create the GLFW window");
+
+		// Center the window
+		try (MemoryStack stack = stackPush()) {
+			IntBuffer pWidth = stack.mallocInt(1); // int*
+			IntBuffer pHeight = stack.mallocInt(1); // int*
+			glfwGetWindowSize(window, pWidth, pHeight);
+			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+			glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2, (vidmode.height() - pHeight.get(0)) / 2);
+		}
+
+		glfwMakeContextCurrent(window);
+		glfwSwapInterval(1); // Enable v-sync
+		glfwShowWindow(window);
+	}
+
 	// Create a colored single fullscreen triangle
-	// 3 *______________
-	//   |\_____________
-	//   | \____________
-	// 2 *  \___________
-	//   |   \__________
-	//   |    \_________
-	// 1 *--*--*________
-	//   |.....|\_______
-	//   |.....| \______
-	// 0 *..*..*  \_____
-	//   |.....|   \____
-	//   |.....|    \___
-	//-1 *--*--*--*--*__
-	//  -1  0  1  2  3 x position coords
-	//   0     1     2 s texture coords
-	void initVerts() {
-		vao = glGenVertexArrays();
-		glBindVertexArray(vao);
+	// @formatter:off
+	// 3  *______________
+	//    |\_____________
+	//    | \____________
+	// 2  *  \___________
+	//    |   \__________
+	//    |    \_________
+	// 1  *--*--*________
+	//    |.....|\_______
+	//    |.....| \______
+	// 0  *..*..*  \_____
+	//    |.....|   \____
+	//    |.....|    \___
+	// -1 *--*--*--*--*__
+	//   -1  0  1  2  3 x position coords
+	// 0 1 2 s texture coords
+	// @formatter:on
+	private void initVerts() {
+		verts = glGenVertexArrays();
+		glBindVertexArray(verts);
 		int positionVbo = glGenBuffers();
 		FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 3);
 		fb.put(-1.0f).put(3.0f);
@@ -205,7 +196,7 @@ public class App {
 		return buffer;
 	}
 
-	static void initTexture() throws IOException {
+	private void initTexture() throws IOException {
 		IntBuffer width = BufferUtils.createIntBuffer(1);
 		IntBuffer height = BufferUtils.createIntBuffer(1);
 		IntBuffer components = BufferUtils.createIntBuffer(1);
@@ -218,19 +209,14 @@ public class App {
 		stbi_image_free(data);
 	}
 
-	public static int createShader(String resource, int type) throws IOException {
+	private int createShader(String resource, int type) throws IOException {
 		int shader = glCreateShader(type);
-
 		ByteBuffer source = resourceToByteBuffer(resource);
-
 		PointerBuffer strings = BufferUtils.createPointerBuffer(1);
 		IntBuffer lengths = BufferUtils.createIntBuffer(1);
-
 		strings.put(0, source);
 		lengths.put(0, source.remaining());
-
 		glShaderSource(shader, strings, lengths);
-
 		glCompileShader(shader);
 		int compiled = glGetShaderi(shader, GL_COMPILE_STATUS);
 		String shaderLog = glGetShaderInfoLog(shader);
@@ -243,7 +229,7 @@ public class App {
 		return shader;
 	}
 
-	void initProgram() throws IOException {
+	private void initProgram() throws IOException {
 		int program = glCreateProgram();
 		int vshader = createShader("basic_vert.glsl", GL_VERTEX_SHADER);
 		int fshader = createShader("basic_frag.glsl", GL_FRAGMENT_SHADER);
@@ -266,57 +252,47 @@ public class App {
 		basic_prog = program;
 	}
 
-	private void render() {
+	private void handleResize() {
 		glViewport(0, 0, window_width, window_height);
-		if(window_resized) {
+		if (window_resized) {
 			window_resized = false;
-			float aspect = (float)window_width/(float)window_height;
-	    	cameraToView.identity();
-		    if (window_width >= window_height) {
-		        // aspect >= 1, set the width to -1 to 1, with larger height
-		    	cameraToView.ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1, 1);
-		    } else {
-		        // aspect < 1, set the height from -1 to 1, with larger width
-		    	cameraToView.ortho(-1.0f * aspect, 1.0f * aspect, -1.0f, 1.0f, -1, 1);
-		    }
+			float aspect = (float) window_width / (float) window_height;
+			cameraToView.identity();
+			if (window_width >= window_height) {
+				// aspect >= 1, set the width to -1 to 1, with larger height
+				cameraToView.ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1, 1);
+			} else {
+				// aspect < 1, set the height from -1 to 1, with larger width
+				cameraToView.ortho(-1.0f * aspect, 1.0f * aspect, -1.0f, 1.0f, -1, 1);
+			}
 		}
+	}
+
+	private void render() {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glUseProgram(basic_prog);
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		cameraToView.get(fb);
 		glUniformMatrix4fv(basic_prog_u_cameraToView, false, fb);
-		glBindVertexArray(vao);
+		glBindVertexArray(verts);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}
 
 	private void loop() {
-		// This line is critical for LWJGL's interoperation with GLFW's
-		// OpenGL context, or any context that is managed externally.
-		// LWJGL detects the context that is current in the current thread,
-		// creates the GLCapabilities instance and makes the OpenGL
-		// bindings available for use.
-		GL.createCapabilities();
-
-		// Set the clear color
-		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
-
-		// Run the rendering loop until the user has attempted to close
-		// the window or has pressed the ESCAPE key.
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+			handleResize();
 			render();
 			glfwSwapBuffers(window); // swap the color buffers
 		}
 	}
 
 	private void destroy() {
-		// Free the window callbacks and destroy the window
 		glfwFreeCallbacks(window);
 		glfwDestroyWindow(window);
-
-		// Terminate GLFW and free the error callback
+		debugProc.free();
 		glfwTerminate();
 		glfwSetErrorCallback(null).free();
 	}
