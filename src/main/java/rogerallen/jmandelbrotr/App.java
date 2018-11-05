@@ -6,14 +6,7 @@ package rogerallen.jmandelbrotr;
 // now adding https://github.com/LWJGL/lwjgl3-demos/blob/master/src/org/lwjgl/demo/opengl/textures/SimpleTexturedQuad.java
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
-import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
-import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
-import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
-import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
-import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
@@ -38,9 +31,12 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.io.IOException;
+import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
+import org.lwjgl.BufferUtils;
 import org.lwjgl.Version;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.system.MemoryStack;
@@ -51,6 +47,14 @@ public class App {
 
 	private long window;
 	private final String WINDOW_TITLE = "JMandelbrotr";
+
+	private boolean switchToFullscreen; // FIXME -- add feature
+	private boolean zoomOutMode; // FIXME -- add feature
+	private boolean saveImage; // FIXME -- add feature
+
+	private boolean mouseDown;
+	private double mouseStartX, mouseStartY, centerStartX, centerStartY;
+	DoubleBuffer mouseBufX, mouseBufY;
 
 	public static void main(String[] args) {
 		new App().run();
@@ -71,15 +75,62 @@ public class App {
 	}
 
 	private void init() throws IOException {
-		// init GLFW stuff
-		initWindow();
+		switchToFullscreen = false;
+		zoomOutMode = false;
+		saveImage = false;
+		mouseBufX = BufferUtils.createDoubleBuffer(1);
+		mouseBufY = BufferUtils.createDoubleBuffer(1);
+		
+		initGLFWWindow();
+		initCallbacks();
+		AppGL.init();
+		AppCUDA.init();
+	}
 
-		// callbacks
+	private void initCallbacks() {
+		// keys
 		glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
-			if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
-				glfwSetWindowShouldClose(window, true);
+			if (action == GLFW_PRESS) {
+				switch (key) {
+				case GLFW_KEY_ESCAPE:
+					glfwSetWindowShouldClose(window, true);
+					break;
+				case GLFW_KEY_D:
+					AppCUDA.doublePrecision = true;
+					break;
+				case GLFW_KEY_S:
+					AppCUDA.doublePrecision = false;
+					break;
+				case GLFW_KEY_F:
+					switchToFullscreen = true;
+					break;
+				case GLFW_KEY_ENTER:
+					zoomOutMode = true;
+					break;
+				case GLFW_KEY_1:
+					AppCUDA.iterMult = 1;
+					break;
+				case GLFW_KEY_2:
+					AppCUDA.iterMult = 2;
+					break;
+				case GLFW_KEY_3:
+					AppCUDA.iterMult = 3;
+					break;
+				case GLFW_KEY_4:
+					AppCUDA.iterMult = 4;
+					break;
+				case GLFW_KEY_P:
+					System.out.println("Center = " + AppCUDA.centerX + ", " + AppCUDA.centerY);
+					System.out.println("Zoom = " + AppCUDA.zoom);
+					break;
+				case GLFW_KEY_W:
+					saveImage = true;
+					break;
+				}
 			}
 		});
+
+		// resize
 		glfwSetFramebufferSizeCallback(window, (long window, int width, int height) -> {
 			if (width > 0 && height > 0 && (AppGL.window_width != width || AppGL.window_height != height)) {
 				AppGL.window_width = width;
@@ -88,15 +139,35 @@ public class App {
 			}
 		});
 
-		// init GL stuff
-		AppGL.init();
+		// mouse up/down
+		glfwSetMouseButtonCallback(window, (window, button, action, mods) -> {
+			if (button == GLFW_MOUSE_BUTTON_1) {
+				if (action == GLFW_PRESS) {
+					glfwGetCursorPos(window, mouseBufX, mouseBufY);
+					mouseStartX = mouseBufX.get(0);
+					mouseStartY = mouseBufY.get(0);
+					centerStartX = AppCUDA.centerX;
+					centerStartY = AppCUDA.centerY; 
+					mouseDown = true;
+				} else if (action == GLFW_RELEASE) {
+					mouseDown = false;
+				}
+			}
+		});
 		
-		// init CUDA stuff
-		AppCUDA.init();
-
+		// mouse scroll 
+		glfwSetScrollCallback(window, (window, xoffset, yoffset) -> {
+			double zoomFactor = Math.abs(/*yoffset */ 1.1);
+			if(yoffset > 0) {
+				AppCUDA.zoom *= zoomFactor;
+			}
+			else {
+				AppCUDA.zoom /= zoomFactor;
+			}
+		});
 	}
 
-	private void initWindow() {
+	private void initGLFWWindow() {
 		GLFWErrorCallback.createPrint(System.err).set();
 
 		if (!glfwInit())
@@ -126,11 +197,36 @@ public class App {
 		glfwSwapInterval(1); // Enable v-sync
 		glfwShowWindow(window);
 	}
+	
+	private void update() {
+		// FIXME switch to fullscreen
+		// FIXME zoom out mode
+		if(mouseDown) {
+			glfwGetCursorPos(window, mouseBufX, mouseBufY);
+			double x = mouseBufX.get(0);
+			double y = mouseBufY.get(0);
+			double dx = x - mouseStartX;
+			double dy = y - mouseStartY;
+			double pixels_per_mspace;
+			if (AppGL.window_width > AppGL.window_height) { 
+				pixels_per_mspace = AppGL.window_width*AppCUDA.zoom;
+			} else {
+				pixels_per_mspace = AppGL.window_height*AppCUDA.zoom;
+			}
+	        double mspace_per_pixel = 2.0/pixels_per_mspace;
+	        double center_delta_x = dx*mspace_per_pixel;
+	        double center_delta_y = dy*mspace_per_pixel;
+	        AppCUDA.centerX = centerStartX - center_delta_x;
+	        AppCUDA.centerY = centerStartY - center_delta_y;
+		}
+		// FIXME -- save image here
+	}
 
 	private void loop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
 			AppGL.handleResize();
+			update();			
 			AppCUDA.render();
 			AppGL.render();
 			glfwSwapBuffers(window); // swap the color buffers

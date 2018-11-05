@@ -27,7 +27,7 @@ public class AppGL {
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
-	public static int window_width = 800;
+	public static int window_width = 800;  // FIXME snake_case to camelCase
 	public static int window_height = 800;
 	public static boolean window_resized = false;
 
@@ -38,7 +38,7 @@ public class AppGL {
 	private static int basic_prog_u_cameraToView;
 
 	private static Matrix4f cameraToView = new Matrix4f();
-	
+
 	public static final int SHARED_TEX_SIZE = 2048;
 	public static int shared_buf_id, shared_tex_id;
 	public static int shared_tex_width;
@@ -121,25 +121,25 @@ public class AppGL {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width.get(), height.get(), 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		stbi_image_free(data);
-		
+
 		// Shared CUDA/GL texture
-        // Shared OpenGL & CUDA buffer
-        // Generate a buffer ID
+		// Shared OpenGL & CUDA buffer
+		// Generate a buffer ID
 		shared_buf_id = glGenBuffers();
 		shared_tex_width = shared_tex_height = SHARED_TEX_SIZE;
-        // Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
-        // Allocate data for the buffer
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, shared_tex_width * shared_tex_height * 4, GL_DYNAMIC_COPY);
+		// Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
+		// Allocate data for the buffer
+		glBufferData(GL_PIXEL_UNPACK_BUFFER, shared_tex_width * shared_tex_height * 4, GL_DYNAMIC_COPY);
 
-        // Create a GL Texture
-        shared_tex_id = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, shared_tex_id);
-        // Allocate the texture memory.
-        glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, shared_tex_width, shared_tex_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-        // Set filter mode
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+		// Create a GL Texture
+		shared_tex_id = glGenTextures();
+		glBindTexture(GL_TEXTURE_2D, shared_tex_id);
+		// Allocate the texture memory.
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, shared_tex_width, shared_tex_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+		// Set filter mode
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
 	private static int createShader(String resource, int type) throws IOException {
@@ -208,13 +208,13 @@ public class AppGL {
 		cameraToView.get(fb);
 		glUniformMatrix4fv(basic_prog_u_cameraToView, false, fb);
 		glBindVertexArray(verts);
-		
-        // connect the pbo to the texture
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
-        glBindTexture(GL_TEXTURE_2D, shared_tex_id);
-        // Since source parameter is NULL, Data is coming from a PBO, not host memory
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shared_tex_width, shared_tex_height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
+		// connect the pbo to the texture
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
+		glBindTexture(GL_TEXTURE_2D, shared_tex_id);
+		// Since source parameter is NULL, Data is coming from a PBO, not host memory
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shared_tex_width, shared_tex_height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glBindVertexArray(0);
