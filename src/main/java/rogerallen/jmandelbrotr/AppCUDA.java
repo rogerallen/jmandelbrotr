@@ -7,19 +7,19 @@ import jcuda.driver.CUgraphicsResource;
 import jcuda.driver.CUmodule;
 import jcuda.driver.JCudaDriver;
 import jcuda.runtime.JCuda;
-import jcuda.runtime.cudaError;
-import jcuda.runtime.cudaGraphicsResource;
-import jcuda.runtime.cudaGraphicsRegisterFlags;
 import jcuda.runtime.cudaDeviceProp;
+import jcuda.runtime.cudaError;
+import jcuda.runtime.cudaGraphicsRegisterFlags;
+import jcuda.runtime.cudaGraphicsResource;
 
 public class AppCUDA {
 
-	public static cudaGraphicsResource cuda_pbo_handle = new cudaGraphicsResource();
+	public static cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
 	public static double centerX, centerY, zoom;
 	public static int iterMult;
 	public static boolean doublePrecision;
 
-	private static CUfunction mandelbrot_float_kernel, mandelbrot_double_kernel;  // FIXME snake_case
+	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
 	public static void init() {
 
@@ -41,37 +41,37 @@ public class AppCUDA {
 		if ((err = JCuda.cudaGLSetGLDevice(dev[0])) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to set CUDA GL device");
 		}
-		if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cuda_pbo_handle, AppGL.shared_buf_id,
+		if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedBufID,
 				cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsNone)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") Failed to register buffer " + AppGL.shared_buf_id);
+			System.err.println("ERROR: (" + err + ") Failed to register buffer " + AppGL.sharedBufID);
 		}
 
 		System.out.println("Loading cuda kernels...");
 		CUmodule module = new CUmodule();
-		String ptx_path = "src/main/resources/mandelbrot.ptx";
-		if ((err = JCudaDriver.cuModuleLoad(module, ptx_path)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to find " + ptx_path);
+		String ptxPath = "src/main/resources/mandelbrot.ptx";
+		if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + err + ") failed to find " + ptxPath);
 		}
-		String cur_function = "mandel_float";
-		mandelbrot_float_kernel = new CUfunction();
-		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrot_float_kernel, module,
-				cur_function)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to get function " + cur_function);
+		String curFunction = "mandel_float";
+		mandelbrotFloatKernel = new CUfunction();
+		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotFloatKernel, module,
+				curFunction)) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
 		}
-		cur_function = "mandel_double";
-		mandelbrot_double_kernel = new CUfunction();
-		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrot_double_kernel, module,
-				cur_function)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to get function " + cur_function);
+		curFunction = "mandel_double";
+		mandelbrotDoubleKernel = new CUfunction();
+		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotDoubleKernel, module,
+				curFunction)) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
 		}
 
 	}
 
 	public static void render() {
-		CUdeviceptr devPtr = mapResouce(cuda_pbo_handle);
-		mandelbrot(devPtr, AppGL.shared_tex_width, AppGL.shared_tex_height, centerX, centerY, zoom, iterMult,
+		CUdeviceptr devPtr = mapResouce(cudaPBOHandle);
+		mandelbrot(devPtr, AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX, centerY, zoom, iterMult,
 				doublePrecision);
-		unmapResouce(cuda_pbo_handle);
+		unmapResouce(cudaPBOHandle);
 	}
 
 	private static CUdeviceptr mapResouce(cudaGraphicsResource cudaResource) {
@@ -107,7 +107,7 @@ public class AppCUDA {
 			Pointer doubleParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { w }),
 					Pointer.to(new int[] { h }), Pointer.to(new double[] { cx }), Pointer.to(new double[] { cy }),
 					Pointer.to(new double[] { zoom }), Pointer.to(new int[] { iter }));
-			if ((err = JCudaDriver.cuLaunchKernel(mandelbrot_double_kernel, w / blockSize, h / blockSize, 1, // grids
+			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotDoubleKernel, w / blockSize, h / blockSize, 1, // grids
 					blockSize, blockSize, 1, // block
 					0, null, // shared memory, stream
 					doubleParams, null // params, extra
@@ -119,7 +119,7 @@ public class AppCUDA {
 					Pointer.to(new int[] { h }), Pointer.to(new float[] { (float) cx }),
 					Pointer.to(new float[] { (float) cy }), Pointer.to(new float[] { (float) zoom }),
 					Pointer.to(new int[] { iter }));
-			if ((err = JCudaDriver.cuLaunchKernel(mandelbrot_float_kernel, w / blockSize, h / blockSize, 1, blockSize,
+			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotFloatKernel, w / blockSize, h / blockSize, 1, blockSize,
 					blockSize, 1, 0, null, floatParams, null)) != cudaError.cudaSuccess) {
 				System.err.println("ERROR: (" + err + ") in cuLaunchKernel for float_kernel");
 			}

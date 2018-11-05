@@ -1,9 +1,55 @@
 package rogerallen.jmandelbrotr;
 
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_FLOAT;
+import static org.lwjgl.opengl.GL11.GL_LINEAR;
+import static org.lwjgl.opengl.GL11.GL_RGBA;
+import static org.lwjgl.opengl.GL11.GL_RGBA8;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER;
+import static org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
+import static org.lwjgl.opengl.GL11.glBindTexture;
+import static org.lwjgl.opengl.GL11.glClear;
+import static org.lwjgl.opengl.GL11.glClearColor;
+import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL11.glGenTextures;
+import static org.lwjgl.opengl.GL11.glTexImage2D;
+import static org.lwjgl.opengl.GL11.glTexParameteri;
+import static org.lwjgl.opengl.GL11.glTexSubImage2D;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL12.GL_BGRA;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_DYNAMIC_COPY;
+import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL15.glBindBuffer;
+import static org.lwjgl.opengl.GL15.glBufferData;
+import static org.lwjgl.opengl.GL15.glGenBuffers;
+import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
+import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
+import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
+import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
+import static org.lwjgl.opengl.GL20.glAttachShader;
+import static org.lwjgl.opengl.GL20.glCompileShader;
+import static org.lwjgl.opengl.GL20.glCreateProgram;
+import static org.lwjgl.opengl.GL20.glCreateShader;
+import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
+import static org.lwjgl.opengl.GL20.glGetAttribLocation;
+import static org.lwjgl.opengl.GL20.glGetProgramInfoLog;
+import static org.lwjgl.opengl.GL20.glGetProgrami;
+import static org.lwjgl.opengl.GL20.glGetShaderInfoLog;
+import static org.lwjgl.opengl.GL20.glGetShaderi;
+import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20.glLinkProgram;
+import static org.lwjgl.opengl.GL20.glShaderSource;
+import static org.lwjgl.opengl.GL20.glUniform1i;
+import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
+import static org.lwjgl.opengl.GL20.glUseProgram;
+import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
+import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.stb.STBImage.stbi_image_free;
 import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 
@@ -27,22 +73,21 @@ public class AppGL {
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
-	public static int window_width = 800;  // FIXME snake_case to camelCase
-	public static int window_height = 800;
-	public static boolean window_resized = false;
+	public static int windowWidth = 800;
+	public static int windowHeight = 800;
+	public static boolean windowResized = false;
 
 	private static int verts;
-	private static int basic_prog;
-	private static int basic_prog_a_position;
-	private static int basic_prog_a_texCoords;
-	private static int basic_prog_u_cameraToView;
+	private static int basicProg;
+	private static int basicProgAttrPosition;
+	private static int basicProgAttrTexCoords;
+	private static int basicProgUniCameraToView;
 
 	private static Matrix4f cameraToView = new Matrix4f();
 
 	public static final int SHARED_TEX_SIZE = 2048;
-	public static int shared_buf_id, shared_tex_id;
-	public static int shared_tex_width;
-	public static int shared_tex_height;
+	public static int sharedBufID, sharedTexID;
+	public static int sharedTexWidth, sharedTexHeight;
 
 	public static void init() throws IOException {
 		/* caps = */ GL.createCapabilities();
@@ -82,8 +127,8 @@ public class AppGL {
 		fb.flip();
 		glBindBuffer(GL_ARRAY_BUFFER, positionVbo);
 		glBufferData(GL_ARRAY_BUFFER, fb, GL_STATIC_DRAW);
-		glVertexAttribPointer(basic_prog_a_position, 2, GL_FLOAT, false, 0, 0L);
-		glEnableVertexAttribArray(basic_prog_a_position);
+		glVertexAttribPointer(basicProgAttrPosition, 2, GL_FLOAT, false, 0, 0L);
+		glEnableVertexAttribArray(basicProgAttrPosition);
 		int texCoordsVbo = glGenBuffers();
 		fb = BufferUtils.createFloatBuffer(2 * 3);
 		fb.put(0.0f).put(-1.0f);
@@ -92,8 +137,8 @@ public class AppGL {
 		fb.flip();
 		glBindBuffer(GL_ARRAY_BUFFER, texCoordsVbo);
 		glBufferData(GL_ARRAY_BUFFER, fb, GL_STATIC_DRAW);
-		glVertexAttribPointer(basic_prog_a_texCoords, 2, GL_FLOAT, true, 0, 0L);
-		glEnableVertexAttribArray(basic_prog_a_texCoords);
+		glVertexAttribPointer(basicProgAttrTexCoords, 2, GL_FLOAT, true, 0, 0L);
+		glEnableVertexAttribArray(basicProgAttrTexCoords);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindVertexArray(0);
 	}
@@ -125,18 +170,18 @@ public class AppGL {
 		// Shared CUDA/GL texture
 		// Shared OpenGL & CUDA buffer
 		// Generate a buffer ID
-		shared_buf_id = glGenBuffers();
-		shared_tex_width = shared_tex_height = SHARED_TEX_SIZE;
+		sharedBufID = glGenBuffers();
+		sharedTexWidth = sharedTexHeight = SHARED_TEX_SIZE;
 		// Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
 		// Allocate data for the buffer
-		glBufferData(GL_PIXEL_UNPACK_BUFFER, shared_tex_width * shared_tex_height * 4, GL_DYNAMIC_COPY);
+		glBufferData(GL_PIXEL_UNPACK_BUFFER, sharedTexWidth * sharedTexHeight * 4, GL_DYNAMIC_COPY);
 
 		// Create a GL Texture
-		shared_tex_id = glGenTextures();
-		glBindTexture(GL_TEXTURE_2D, shared_tex_id);
+		sharedTexID = glGenTextures();
+		glBindTexture(GL_TEXTURE_2D, sharedTexID);
 		// Allocate the texture memory.
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, shared_tex_width, shared_tex_height, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sharedTexWidth, sharedTexHeight, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 		// Set filter mode
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -178,20 +223,20 @@ public class AppGL {
 		glUseProgram(program);
 		int texLocation = glGetUniformLocation(program, "texture");
 		glUniform1i(texLocation, 0);
-		basic_prog_a_position = glGetAttribLocation(program, "position");
-		basic_prog_a_texCoords = glGetAttribLocation(program, "texCoords");
-		basic_prog_u_cameraToView = glGetUniformLocation(program, "cameraToView");
+		basicProgAttrPosition = glGetAttribLocation(program, "position");
+		basicProgAttrTexCoords = glGetAttribLocation(program, "texCoords");
+		basicProgUniCameraToView = glGetUniformLocation(program, "cameraToView");
 		glUseProgram(0);
-		basic_prog = program;
+		basicProg = program;
 	}
 
 	public static void handleResize() {
-		glViewport(0, 0, window_width, window_height);
-		if (window_resized) {
-			window_resized = false;
-			float aspect = (float) window_width / (float) window_height;
+		glViewport(0, 0, windowWidth, windowHeight);
+		if (windowResized) {
+			windowResized = false;
+			float aspect = (float) windowWidth / (float) windowHeight;
 			cameraToView.identity();
-			if (window_width >= window_height) {
+			if (windowWidth >= windowHeight) {
 				// aspect >= 1, set the width to -1 to 1, with larger height
 				cameraToView.ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1, 1);
 			} else {
@@ -203,17 +248,17 @@ public class AppGL {
 
 	public static void render() {
 		glClear(GL_COLOR_BUFFER_BIT);
-		glUseProgram(basic_prog);
+		glUseProgram(basicProg);
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		cameraToView.get(fb);
-		glUniformMatrix4fv(basic_prog_u_cameraToView, false, fb);
+		glUniformMatrix4fv(basicProgUniCameraToView, false, fb);
 		glBindVertexArray(verts);
 
 		// connect the pbo to the texture
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, shared_buf_id);
-		glBindTexture(GL_TEXTURE_2D, shared_tex_id);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
+		glBindTexture(GL_TEXTURE_2D, sharedTexID);
 		// Since source parameter is NULL, Data is coming from a PBO, not host memory
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, shared_tex_width, shared_tex_height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTexWidth, sharedTexHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 		glDrawArrays(GL_TRIANGLES, 0, 3);

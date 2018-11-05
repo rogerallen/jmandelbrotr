@@ -3,13 +3,33 @@ package rogerallen.jmandelbrotr;
 // started with https://www.lwjgl.org/guide
 // lwjgl maven deps are at https://www.lwjgl.org/customize
 // jcuda maven deps are at http://www.jcuda.org/downloads/downloads.html
-// now adding https://github.com/LWJGL/lwjgl3-demos/blob/master/src/org/lwjgl/demo/opengl/textures/SimpleTexturedQuad.java
+// used this for inspiration https://github.com/LWJGL/lwjgl3-demos/blob/master/src/org/lwjgl/demo/opengl/textures/SimpleTexturedQuad.java
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
-import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
+import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
+import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_1;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_2;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_3;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_4;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_P;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_S;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
+import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_1;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
+import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
+import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
+import static org.lwjgl.glfw.GLFW.glfwGetCursorPos;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
 import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
 import static org.lwjgl.glfw.GLFW.glfwGetWindowSize;
@@ -19,6 +39,8 @@ import static org.lwjgl.glfw.GLFW.glfwPollEvents;
 import static org.lwjgl.glfw.GLFW.glfwSetErrorCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import static org.lwjgl.glfw.GLFW.glfwShowWindow;
@@ -36,7 +58,6 @@ import java.nio.IntBuffer;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.Version;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.system.MemoryStack;
@@ -80,7 +101,7 @@ public class App {
 		saveImage = false;
 		mouseBufX = BufferUtils.createDoubleBuffer(1);
 		mouseBufY = BufferUtils.createDoubleBuffer(1);
-		
+
 		initGLFWWindow();
 		initCallbacks();
 		AppGL.init();
@@ -132,10 +153,10 @@ public class App {
 
 		// resize
 		glfwSetFramebufferSizeCallback(window, (long window, int width, int height) -> {
-			if (width > 0 && height > 0 && (AppGL.window_width != width || AppGL.window_height != height)) {
-				AppGL.window_width = width;
-				AppGL.window_height = height;
-				AppGL.window_resized = true;
+			if (width > 0 && height > 0 && (AppGL.windowWidth != width || AppGL.windowHeight != height)) {
+				AppGL.windowWidth = width;
+				AppGL.windowHeight = height;
+				AppGL.windowResized = true;
 			}
 		});
 
@@ -147,21 +168,20 @@ public class App {
 					mouseStartX = mouseBufX.get(0);
 					mouseStartY = mouseBufY.get(0);
 					centerStartX = AppCUDA.centerX;
-					centerStartY = AppCUDA.centerY; 
+					centerStartY = AppCUDA.centerY;
 					mouseDown = true;
 				} else if (action == GLFW_RELEASE) {
 					mouseDown = false;
 				}
 			}
 		});
-		
-		// mouse scroll 
+
+		// mouse scroll
 		glfwSetScrollCallback(window, (window, xoffset, yoffset) -> {
-			double zoomFactor = Math.abs(/*yoffset */ 1.1);
-			if(yoffset > 0) {
+			double zoomFactor = Math.abs(/* yoffset */ 1.1);
+			if (yoffset > 0) {
 				AppCUDA.zoom *= zoomFactor;
-			}
-			else {
+			} else {
 				AppCUDA.zoom /= zoomFactor;
 			}
 		});
@@ -180,7 +200,7 @@ public class App {
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		// Create the window
-		window = glfwCreateWindow(AppGL.window_width, AppGL.window_height, WINDOW_TITLE, NULL, NULL);
+		window = glfwCreateWindow(AppGL.windowWidth, AppGL.windowHeight, WINDOW_TITLE, NULL, NULL);
 		if (window == NULL)
 			throw new RuntimeException("Failed to create the GLFW window");
 
@@ -197,27 +217,27 @@ public class App {
 		glfwSwapInterval(1); // Enable v-sync
 		glfwShowWindow(window);
 	}
-	
+
 	private void update() {
 		// FIXME switch to fullscreen
 		// FIXME zoom out mode
-		if(mouseDown) {
+		if (mouseDown) {
 			glfwGetCursorPos(window, mouseBufX, mouseBufY);
 			double x = mouseBufX.get(0);
 			double y = mouseBufY.get(0);
 			double dx = x - mouseStartX;
 			double dy = y - mouseStartY;
 			double pixels_per_mspace;
-			if (AppGL.window_width > AppGL.window_height) { 
-				pixels_per_mspace = AppGL.window_width*AppCUDA.zoom;
+			if (AppGL.windowWidth > AppGL.windowHeight) {
+				pixels_per_mspace = AppGL.windowWidth * AppCUDA.zoom;
 			} else {
-				pixels_per_mspace = AppGL.window_height*AppCUDA.zoom;
+				pixels_per_mspace = AppGL.windowHeight * AppCUDA.zoom;
 			}
-	        double mspace_per_pixel = 2.0/pixels_per_mspace;
-	        double center_delta_x = dx*mspace_per_pixel;
-	        double center_delta_y = dy*mspace_per_pixel;
-	        AppCUDA.centerX = centerStartX - center_delta_x;
-	        AppCUDA.centerY = centerStartY - center_delta_y;
+			double mspace_per_pixel = 2.0 / pixels_per_mspace;
+			double center_delta_x = dx * mspace_per_pixel;
+			double center_delta_y = dy * mspace_per_pixel;
+			AppCUDA.centerX = centerStartX - center_delta_x;
+			AppCUDA.centerY = centerStartY - center_delta_y;
 		}
 		// FIXME -- save image here
 	}
@@ -226,7 +246,7 @@ public class App {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
 			AppGL.handleResize();
-			update();			
+			update();
 			AppCUDA.render();
 			AppGL.render();
 			glfwSwapBuffers(window); // swap the color buffers
