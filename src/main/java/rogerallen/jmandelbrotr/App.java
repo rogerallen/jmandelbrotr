@@ -53,17 +53,14 @@ public class App {
 	private final String WINDOW_TITLE = "JMandelbrotr";
 
 	public static void main(String[] args) {
-
-		AppCUDA.test(); // FIXME
-
 		new App().run();
 	}
 
 	public void run() {
-		System.err.println("JMandelbrotr");
-		System.err.println("Running LWJGL " + Version.getVersion());
-		System.err.println("Running JCuda " + JCuda.CUDART_VERSION);
-		System.err.println("Press ESC to quit.");
+		System.out.println("JMandelbrotr");
+		System.out.println("Running LWJGL " + Version.getVersion());
+		System.out.println("Running JCuda " + JCuda.CUDART_VERSION);
+		System.out.println("Press ESC to quit.");
 		try {
 			init();
 			loop();
@@ -93,6 +90,9 @@ public class App {
 
 		// init GL stuff
 		AppGL.init();
+		
+		// init CUDA stuff
+		AppCUDA.init();
 
 	}
 
@@ -131,6 +131,7 @@ public class App {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
 			AppGL.handleResize();
+			AppCUDA.render();
 			AppGL.render();
 			glfwSwapBuffers(window); // swap the color buffers
 		}
