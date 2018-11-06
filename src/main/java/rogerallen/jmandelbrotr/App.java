@@ -220,7 +220,13 @@ public class App {
 
 	private void update() {
 		// FIXME switch to fullscreen
-		// FIXME zoom out mode
+		if(zoomOutMode) {
+	        AppCUDA.zoom /= 1.1;
+	        if(AppCUDA.zoom < 0.5) {
+	        	zoomOutMode = false;
+	        }
+	    }
+		
 		if (mouseDown) {
 			glfwGetCursorPos(window, mouseBufX, mouseBufY);
 			double x = mouseBufX.get(0);

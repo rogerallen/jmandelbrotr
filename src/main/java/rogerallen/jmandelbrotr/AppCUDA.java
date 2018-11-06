@@ -23,8 +23,9 @@ public class AppCUDA {
 
 	public static void init() {
 
-		centerX = centerY = 0.0;
-		zoom = 1.0;
+		centerX = -0.5; 
+		centerY = 0.0;
+		zoom = 0.5;
 		iterMult = 1;
 		doublePrecision = false;
 
