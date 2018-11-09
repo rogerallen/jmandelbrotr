@@ -25,6 +25,8 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
 import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.GLFW_VERSION_MAJOR;
+import static org.lwjgl.glfw.GLFW.GLFW_VERSION_MINOR;
 import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
@@ -41,6 +43,7 @@ import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowMonitor;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import static org.lwjgl.glfw.GLFW.glfwShowWindow;
@@ -69,8 +72,10 @@ public class App {
 	private long window;
 	private final String WINDOW_TITLE = "JMandelbrotr";
 
-	private boolean switchToFullscreen; // FIXME -- add feature
-	private boolean zoomOutMode; // FIXME -- add feature
+	private boolean switchFullscreen;
+	private boolean isFullscreen;
+	private int prevWindowWidth, prevWindowHeight;
+	private boolean zoomOutMode;
 	private boolean saveImage; // FIXME -- add feature
 
 	private boolean mouseDown;
@@ -84,6 +89,7 @@ public class App {
 	public void run() {
 		System.out.println("JMandelbrotr");
 		System.out.println("Running LWJGL " + Version.getVersion());
+		System.out.println("Running GLFW " + GLFW_VERSION_MAJOR + "." + GLFW_VERSION_MINOR);
 		System.out.println("Running JCuda " + JCuda.CUDART_VERSION);
 		System.out.println("Press ESC to quit.");
 		try {
@@ -96,7 +102,8 @@ public class App {
 	}
 
 	private void init() throws IOException {
-		switchToFullscreen = false;
+		switchFullscreen = false;
+		isFullscreen = false;
 		zoomOutMode = false;
 		saveImage = false;
 		mouseBufX = BufferUtils.createDoubleBuffer(1);
@@ -123,7 +130,7 @@ public class App {
 					AppCUDA.doublePrecision = false;
 					break;
 				case GLFW_KEY_F:
-					switchToFullscreen = true;
+					switchFullscreen = true;
 					break;
 				case GLFW_KEY_ENTER:
 					zoomOutMode = true;
@@ -219,14 +226,31 @@ public class App {
 	}
 
 	private void update() {
-		// FIXME switch to fullscreen
-		if(zoomOutMode) {
-	        AppCUDA.zoom /= 1.1;
-	        if(AppCUDA.zoom < 0.5) {
-	        	zoomOutMode = false;
-	        }
-	    }
-		
+		if (switchFullscreen) {
+			switchFullscreen = false;
+			if (isFullscreen) {
+				isFullscreen = false;
+				GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+				glfwSetWindowMonitor(window, 0, // no monitor, so go windowed.
+						(vidmode.width() - prevWindowWidth) / 2, (vidmode.height() - prevWindowHeight) / 2,
+						prevWindowWidth, prevWindowHeight, 0);
+			} else {
+				isFullscreen = true;
+				prevWindowWidth = AppGL.windowWidth;
+				prevWindowHeight = AppGL.windowHeight;
+				GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+				glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, vidmode.width(), vidmode.height(),
+						vidmode.refreshRate());
+			}
+		}
+
+		if (zoomOutMode) {
+			AppCUDA.zoom /= 1.1;
+			if (AppCUDA.zoom < 0.5) {
+				zoomOutMode = false;
+			}
+		}
+
 		if (mouseDown) {
 			glfwGetCursorPos(window, mouseBufX, mouseBufY);
 			double x = mouseBufX.get(0);
