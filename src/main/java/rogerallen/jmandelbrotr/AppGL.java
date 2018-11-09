@@ -15,6 +15,7 @@ import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glDrawArrays;
 import static org.lwjgl.opengl.GL11.glGenTextures;
+import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glTexImage2D;
 import static org.lwjgl.opengl.GL11.glTexParameteri;
 import static org.lwjgl.opengl.GL11.glTexSubImage2D;
@@ -268,5 +269,11 @@ public class AppGL {
 
 	public static void destroy() {
 		debugProc.free();
+	}
+
+	public static ByteBuffer getPixels() {
+		ByteBuffer buffer = BufferUtils.createByteBuffer(AppGL.windowWidth * AppGL.windowHeight * 4);
+        glReadPixels(0, 0, AppGL.windowWidth, AppGL.windowHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        return buffer;
 	}
 }

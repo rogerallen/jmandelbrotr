@@ -55,9 +55,14 @@ import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
+
+import javax.imageio.ImageIO;
 
 import org.lwjgl.BufferUtils;
 import org.lwjgl.Version;
@@ -76,8 +81,7 @@ public class App {
 	private boolean isFullscreen;
 	private int prevWindowWidth, prevWindowHeight;
 	private boolean zoomOutMode;
-	private boolean saveImage; // FIXME -- add feature
-
+	private boolean saveImage;
 	private boolean mouseDown;
 	private double mouseStartX, mouseStartY, centerStartX, centerStartY;
 	DoubleBuffer mouseBufX, mouseBufY;
@@ -269,7 +273,31 @@ public class App {
 			AppCUDA.centerX = centerStartX - center_delta_x;
 			AppCUDA.centerY = centerStartY - center_delta_y;
 		}
-		// FIXME -- save image here
+
+		if (saveImage) {
+			System.out.println("write save.png\n");
+			saveImage = false;
+			ByteBuffer buffer = AppGL.getPixels();
+			File file = new File("save.png");
+			String format = "PNG"; // Example: "PNG" or "JPG"
+			BufferedImage image = new BufferedImage(AppGL.windowWidth, AppGL.windowHeight, BufferedImage.TYPE_INT_RGB);
+
+			for (int x = 0; x < AppGL.windowWidth; x++) {
+				for (int y = 0; y < AppGL.windowHeight; y++) {
+					int i = (x + (AppGL.windowWidth * y)) * 4;
+					int r = buffer.get(i) & 0xFF;
+					int g = buffer.get(i + 1) & 0xFF;
+					int b = buffer.get(i + 2) & 0xFF;
+					image.setRGB(x, AppGL.windowHeight - (y + 1), (0xFF << 24) | (r << 16) | (g << 8) | b);
+				}
+			}
+
+			try {
+				ImageIO.write(image, format, file);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	private void loop() {
