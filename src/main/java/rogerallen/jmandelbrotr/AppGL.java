@@ -1,5 +1,35 @@
 package rogerallen.jmandelbrotr;
 
+/*
+ * Some portions lifted from https://github.com/LWJGL/lwjgl3-demos/blob/master/src/org/lwjgl/demo/opengl/util/DemoUtils.java
+ * and subject to this license.
+ * 
+ * Copyright © 2012-present Lightweight Java Game Library All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * Redistributions of source code must retain the above copyright notice, this
+ * list of conditions and the following disclaimer. Redistributions in binary
+ * form must reproduce the above copyright notice, this list of conditions and
+ * the following disclaimer in the documentation and/or other materials provided
+ * with the distribution. Neither the name Lightweight Java Game Library nor the
+ * names of its contributors may be used to endorse or promote products derived
+ * from this software without specific prior written permission. 
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
+ * ANY EXPRESSOR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
+ */
+
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_FLOAT;
 import static org.lwjgl.opengl.GL11.GL_LINEAR;
@@ -56,7 +86,9 @@ import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -71,6 +103,9 @@ import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
 public class AppGL {
+	
+	private static String RESOURCES_PREFIX  = "";
+	
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
@@ -91,6 +126,15 @@ public class AppGL {
 	public static int sharedTexWidth, sharedTexHeight;
 
 	public static void init() throws IOException {
+		// FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
+		// If I run in Eclipse, I load files as foo.  If I run in a jar, I load files as resources/foo
+		// This is a hack workaround.
+		InputStream source_in_jar = Thread.currentThread().getContextClassLoader().getResourceAsStream("resources/side1.png");
+		if(source_in_jar != null) {
+			RESOURCES_PREFIX = "resources/"; // JAR Compile
+		}
+		System.out.println("RESOURCES_PREFIX = \""+RESOURCES_PREFIX+"\"");
+
 		/* caps = */ GL.createCapabilities();
 		debugProc = GLUtil.setupDebugMessageCallback();
 		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
@@ -144,6 +188,48 @@ public class AppGL {
 		glBindVertexArray(0);
 	}
 
+	private static ByteBuffer resizeBuffer(ByteBuffer buffer, int newCapacity) {
+		ByteBuffer newBuffer = BufferUtils.createByteBuffer(newCapacity);
+		buffer.flip();
+		newBuffer.put(buffer);
+		return newBuffer;
+	}
+
+	public static ByteBuffer ioResourceToByteBuffer(String resource) throws IOException {
+		int bufferSize = 8192;
+		ByteBuffer buffer;
+		URL url = Thread.currentThread().getContextClassLoader().getResource(resource);
+		File file = new File(url.getFile());
+		if (file.isFile()) {
+			FileInputStream fis = new FileInputStream(file);
+			FileChannel fc = fis.getChannel();
+			buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+			fc.close();
+			fis.close();
+		} else {
+			buffer = BufferUtils.createByteBuffer(bufferSize);
+			InputStream source = url.openStream();
+			if (source == null)
+				throw new FileNotFoundException(resource);
+			try {
+				byte[] buf = new byte[8192];
+				while (true) {
+					int bytes = source.read(buf, 0, buf.length);
+					if (bytes == -1)
+						break;
+					if (buffer.remaining() < bytes)
+						buffer = resizeBuffer(buffer, buffer.capacity() * 2);
+					buffer.put(buf, 0, bytes);
+				}
+				buffer.flip();
+			} finally {
+				source.close();
+			}
+		}
+		return buffer;
+	}
+
+	// my file-only code
 	private static ByteBuffer resourceToByteBuffer(String resource) throws IOException {
 		URL url = Thread.currentThread().getContextClassLoader().getResource(resource);
 		File file = new File(url.getFile());
@@ -160,7 +246,8 @@ public class AppGL {
 		IntBuffer width = BufferUtils.createIntBuffer(1);
 		IntBuffer height = BufferUtils.createIntBuffer(1);
 		IntBuffer components = BufferUtils.createIntBuffer(1);
-		ByteBuffer data = stbi_load_from_memory(resourceToByteBuffer("side1.png"), width, height, components, 4);
+		ByteBuffer data = stbi_load_from_memory(ioResourceToByteBuffer(RESOURCES_PREFIX+"side1.png"), width, height, components,
+				4);
 		int id = glGenTextures();
 		glBindTexture(GL_TEXTURE_2D, id);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -190,7 +277,7 @@ public class AppGL {
 
 	private static int createShader(String resource, int type) throws IOException {
 		int shader = glCreateShader(type);
-		ByteBuffer source = resourceToByteBuffer(resource);
+		ByteBuffer source = ioResourceToByteBuffer(resource);
 		PointerBuffer strings = BufferUtils.createPointerBuffer(1);
 		IntBuffer lengths = BufferUtils.createIntBuffer(1);
 		strings.put(0, source);
@@ -210,8 +297,8 @@ public class AppGL {
 
 	private static void initProgram() throws IOException {
 		int program = glCreateProgram();
-		int vshader = createShader("basic_vert.glsl", GL_VERTEX_SHADER);
-		int fshader = createShader("basic_frag.glsl", GL_FRAGMENT_SHADER);
+		int vshader = createShader(RESOURCES_PREFIX+"basic_vert.glsl", GL_VERTEX_SHADER);
+		int fshader = createShader(RESOURCES_PREFIX+"basic_frag.glsl", GL_FRAGMENT_SHADER);
 		glAttachShader(program, vshader);
 		glAttachShader(program, fshader);
 		glLinkProgram(program);
@@ -273,7 +360,7 @@ public class AppGL {
 
 	public static ByteBuffer getPixels() {
 		ByteBuffer buffer = BufferUtils.createByteBuffer(AppGL.windowWidth * AppGL.windowHeight * 4);
-        glReadPixels(0, 0, AppGL.windowWidth, AppGL.windowHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        return buffer;
+		glReadPixels(0, 0, AppGL.windowWidth, AppGL.windowHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+		return buffer;
 	}
 }

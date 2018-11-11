@@ -278,6 +278,8 @@ public class App {
 			System.out.println("write save.png\n");
 			saveImage = false;
 			ByteBuffer buffer = AppGL.getPixels();
+			// TODO - could read into the buffer, then in another thread save the file to avoid
+			// refresh delays.
 			File file = new File("save.png");
 			String format = "PNG"; // Example: "PNG" or "JPG"
 			BufferedImage image = new BufferedImage(AppGL.windowWidth, AppGL.windowHeight, BufferedImage.TYPE_INT_RGB);
