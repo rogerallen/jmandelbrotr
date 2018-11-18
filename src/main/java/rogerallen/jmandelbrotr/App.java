@@ -97,15 +97,18 @@ public class App {
 		System.out.println("Running JCuda " + JCuda.CUDART_VERSION);
 		System.out.println("Press ESC to quit.");
 		try {
-			init();
-			loop();
-			destroy();
+			boolean error = init();
+			if(!error) {
+				loop();
+				destroy();
+			}
 		} catch (IOException e) {
 			System.err.println("ERROR: " + e);
 		}
 	}
 
-	private void init() throws IOException {
+	// return true if there is an error
+	private boolean init() throws IOException {
 		switchFullscreen = false;
 		isFullscreen = false;
 		zoomOutMode = false;
@@ -116,7 +119,8 @@ public class App {
 		initGLFWWindow();
 		initCallbacks();
 		AppGL.init();
-		AppCUDA.init();
+		boolean error = AppCUDA.init();
+		return error;
 	}
 
 	private void initCallbacks() {

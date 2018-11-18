@@ -21,7 +21,8 @@ public class AppCUDA {
 
 	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
-	public static void init() {
+	// return true when there is an error
+	public static boolean init() {
 
 		centerX = -0.5; 
 		centerY = 0.0;
@@ -37,14 +38,18 @@ public class AppCUDA {
 		prop.minor = 0;
 		if ((err = JCuda.cudaChooseDevice(dev, prop)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to choose CUDA device");
+			return true;
 		}
 		System.out.println("CUDA chose device " + dev[0]);
 		if ((err = JCuda.cudaGLSetGLDevice(dev[0])) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to set CUDA GL device");
+			return true;
 		}
 		if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedBufID,
 				cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsNone)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") Failed to register buffer " + AppGL.sharedBufID);
+			System.err.println("Make sure that you are running graphics on NVIDIA GPU");
+			return true;
 		}
 
 		System.out.println("Loading cuda kernels...");
@@ -52,20 +57,23 @@ public class AppCUDA {
 		String ptxPath = "src/main/resources/mandelbrot.ptx";
 		if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to find " + ptxPath);
+			return true;
 		}
 		String curFunction = "mandel_float";
 		mandelbrotFloatKernel = new CUfunction();
 		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotFloatKernel, module,
 				curFunction)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
+			return true;
 		}
 		curFunction = "mandel_double";
 		mandelbrotDoubleKernel = new CUfunction();
 		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotDoubleKernel, module,
 				curFunction)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
+			return true;
 		}
-
+		return false;
 	}
 
 	public static void render() {
