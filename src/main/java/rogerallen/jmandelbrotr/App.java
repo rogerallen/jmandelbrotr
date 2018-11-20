@@ -79,6 +79,7 @@ public class App {
 
 	private boolean switchFullscreen;
 	private boolean isFullscreen;
+	private int monitorWidth, monitorHeight;
 	private int prevWindowWidth, prevWindowHeight;
 	private boolean zoomOutMode;
 	private boolean saveImage;
@@ -118,7 +119,7 @@ public class App {
 
 		initGLFWWindow();
 		initCallbacks();
-		AppGL.init();
+		AppGL.init(monitorWidth,monitorHeight);
 		boolean error = AppCUDA.init();
 		return error;
 	}
@@ -225,6 +226,8 @@ public class App {
 			IntBuffer pHeight = stack.mallocInt(1); // int*
 			glfwGetWindowSize(window, pWidth, pHeight);
 			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+			monitorWidth = vidmode.width();
+			monitorHeight = vidmode.height();
 			glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2, (vidmode.height() - pHeight.get(0)) / 2);
 		}
 

@@ -121,11 +121,12 @@ public class AppGL {
 
 	private static Matrix4f cameraToView = new Matrix4f();
 
+	// FIXME -- make TEX size the size of the screen
 	public static final int SHARED_TEX_SIZE = 2048;
 	public static int sharedBufID, sharedTexID;
 	public static int sharedTexWidth, sharedTexHeight;
 
-	public static void init() throws IOException {
+	public static void init(int monitorWidth, int monitorHeight) throws IOException {
 		// FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
 		// If I run in Eclipse, I load files as foo.  If I run in a jar, I load files as resources/foo
 		// This is a hack workaround.
@@ -135,6 +136,9 @@ public class AppGL {
 		}
 		System.out.println("RESOURCES_PREFIX = \""+RESOURCES_PREFIX+"\"");
 
+		// FIXME to do more than this
+		System.out.println("Monitor size = "+monitorWidth+"x"+monitorHeight);
+		
 		/* caps = */ GL.createCapabilities();
 		debugProc = GLUtil.setupDebugMessageCallback();
 		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);

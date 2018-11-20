@@ -7,18 +7,18 @@ import jcuda.driver.CUgraphicsResource;
 import jcuda.driver.CUmodule;
 import jcuda.driver.JCudaDriver;
 import jcuda.runtime.JCuda;
-import jcuda.runtime.cudaDeviceProp;
 import jcuda.runtime.cudaError;
+import jcuda.runtime.cudaGLDeviceList;
 import jcuda.runtime.cudaGraphicsRegisterFlags;
 import jcuda.runtime.cudaGraphicsResource;
 
 public class AppCUDA {
 
-	public static cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
 	public static double centerX, centerY, zoom;
 	public static int iterMult;
 	public static boolean doublePrecision;
-
+	
+	public static cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
 	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
 	// return true when there is an error
@@ -31,23 +31,27 @@ public class AppCUDA {
 		doublePrecision = false;
 
 		int err;
-		// FIXME -- just use commandline to select the device or default to 0
-		cudaDeviceProp prop = new cudaDeviceProp();
-		int[] dev = { 0 };
-		prop.major = 6;
-		prop.minor = 0;
-		if ((err = JCuda.cudaChooseDevice(dev, prop)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to choose CUDA device");
+		
+		// find the first GL device & use that.
+		int[] deviceCounts = {-1};
+		int[] devices = {-1};
+		if ((err = JCuda.cudaGLGetDevices(deviceCounts, devices, 1, cudaGLDeviceList.cudaGLDeviceListAll)) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaGLGetDevices");
 			return true;
 		}
-		System.out.println("CUDA chose device " + dev[0]);
-		if ((err = JCuda.cudaGLSetGLDevice(dev[0])) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to set CUDA GL device");
+		if(deviceCounts[0] == 0) {
+			System.err.println("ERROR: no cudaGLGetDevices found.");
+			return true;			
+		}
+		if ((err = JCuda.cudaSetDevice(devices[0])) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaSetDevice("+devices[0]+")");
 			return true;
 		}
+		// CUDA writes to the buffer, OpenGL reads, then this repeats.
+		// So, add WriteDiscard flag to this buffer.
 		if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedBufID,
-				cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsNone)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") Failed to register buffer " + AppGL.sharedBufID);
+				cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard)) != cudaError.cudaSuccess) {
+			System.err.println("ERROR: (" + errStr(err) + ") Failed to register buffer " + AppGL.sharedBufID);
 			System.err.println("Make sure that you are running graphics on NVIDIA GPU");
 			return true;
 		}
@@ -56,21 +60,21 @@ public class AppCUDA {
 		CUmodule module = new CUmodule();
 		String ptxPath = "src/main/resources/mandelbrot.ptx";
 		if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to find " + ptxPath);
+			System.err.println("ERROR: (" + errStr(err) + ") failed to find " + ptxPath);
 			return true;
 		}
 		String curFunction = "mandel_float";
 		mandelbrotFloatKernel = new CUfunction();
 		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotFloatKernel, module,
 				curFunction)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
+			System.err.println("ERROR: (" + errStr(err) + ") failed to get function " + curFunction);
 			return true;
 		}
 		curFunction = "mandel_double";
 		mandelbrotDoubleKernel = new CUfunction();
 		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotDoubleKernel, module,
 				curFunction)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to get function " + curFunction);
+			System.err.println("ERROR: (" + errStr(err) + ") failed to get function " + curFunction);
 			return true;
 		}
 		return false;
@@ -82,6 +86,10 @@ public class AppCUDA {
 				doublePrecision);
 		unmapResouce(cudaPBOHandle);
 	}
+	
+	private static String errStr(int err) {
+		return JCuda.cudaGetErrorName(err) + "=" + err;
+	}
 
 	private static CUdeviceptr mapResouce(cudaGraphicsResource cudaResource) {
 		CUgraphicsResource cuResource = new CUgraphicsResource(cudaResource);
@@ -89,11 +97,11 @@ public class AppCUDA {
 		int err;
 		if ((err = JCudaDriver.cuGraphicsMapResources(1, new CUgraphicsResource[] { cuResource },
 				null)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to map resource");
+			System.err.println("ERROR: (" + errStr(err) + ") failed to map resource");
 		}
 		if ((err = JCudaDriver.cuGraphicsResourceGetMappedPointer(basePointer, new long[1],
 				cuResource)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to get mapped pointer");
+			System.err.println("ERROR: (" + errStr(err) + ") failed to get mapped pointer");
 		}
 		return basePointer;
 	}
@@ -103,7 +111,7 @@ public class AppCUDA {
 		int err;
 		if ((err = JCudaDriver.cuGraphicsUnmapResources(1, new CUgraphicsResource[] { cuResource },
 				null)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") failed to unmap resource");
+			System.err.println("ERROR: (" + errStr(err) + ") failed to unmap resource");
 		}
 		;
 	}
@@ -121,7 +129,7 @@ public class AppCUDA {
 					0, null, // shared memory, stream
 					doubleParams, null // params, extra
 			)) != cudaError.cudaSuccess) {
-				System.err.println("ERROR: (" + err + ") in cuLaunchKernel for double_kernel");
+				System.err.println("ERROR: (" + errStr(err) + ") in cuLaunchKernel for double_kernel");
 			}
 		} else {
 			Pointer floatParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { w }),
@@ -130,14 +138,14 @@ public class AppCUDA {
 					Pointer.to(new int[] { iter }));
 			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotFloatKernel, w / blockSize, h / blockSize, 1, blockSize,
 					blockSize, 1, 0, null, floatParams, null)) != cudaError.cudaSuccess) {
-				System.err.println("ERROR: (" + err + ") in cuLaunchKernel for float_kernel");
+				System.err.println("ERROR: (" + errStr(err) + ") in cuLaunchKernel for float_kernel");
 			}
 		}
 		if ((err = JCuda.cudaGetLastError()) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") from cudaGetLastError");
+			System.err.println("ERROR: (" + errStr(err) + ") from cudaGetLastError");
 		}
 		if ((err = JCudaDriver.cuCtxSynchronize()) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + err + ") in cuCtxSynchronize");
+			System.err.println("ERROR: (" + errStr(err) + ") in cuCtxSynchronize");
 		}
 	}
 }
