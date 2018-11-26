@@ -1,7 +1,9 @@
-// To compile on Windows:
+// To compile on Windows, setup visual studio via vcvars64.bat
+// Here are hints on where you might find that file.
 //   "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
-//
-// nvcc -ptx mandelbrot.cu -o mandelbrot.ptx
+//   "C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\vcvars64.bat"
+// Then:
+//   nvcc -ptx mandelbrot.cu -o mandelbrot.ptx
 //   
 
 __device__ static unsigned char viridis[256][3] = {
@@ -58,24 +60,28 @@ __global__ void mandel_float(uchar4 *ptr, int w, int h, float cx, float cy, floa
     int offset = x + y * blockDim.x * gridDim.x;
 
     if(x < w && y < h) {
-        uchar4 bgra = {0x0,0x0,0x0,0x0};  // inside = black
-        unsigned int MaxIterations = iter_mult*256;
-        float ImageWidth = w;
-        float ImageHeight = h;
-        float MinRe = cx - 1.0f/zoom;
-        float MaxRe = cx + 1.0f/zoom;
-        float MinIm = cy - 1.0f/zoom;
-        float MaxIm = MinIm+(MaxRe-MinRe)*ImageHeight/ImageWidth;
-        float Re_factor = (MaxRe-MinRe)/(ImageWidth-1);
-        float Im_factor = (MaxIm-MinIm)/(ImageHeight-1);
-
-        float c_im = MinIm + y*Im_factor;
-        float c_re = MinRe + x*Re_factor;
-
-        float Z_re = c_re, Z_im = c_im;
-        for(unsigned int n=0; n<MaxIterations; ++n) {
-            float Z_re2 = Z_re*Z_re, Z_im2 = Z_im*Z_im;
-            if(Z_re2 + Z_im2 > 4.0f) {
+        uchar4 bgra = {0x0,0x0,0x0,0x0}; // inside = black
+        unsigned int max_iterations = iter_mult*256;
+        zoom = 1.0f/zoom;
+        float min_re = cx - zoom;
+        float min_im = cy - zoom;
+        float re_factor = 2*zoom/(w-1);
+        float im_factor = 2*zoom/(h-1);
+        float c_re = min_re + x*re_factor;
+        float c_im = min_im + y*im_factor;        
+#if 0
+		// testing my vertex shader
+		float xf = c_re; //4.0*x/w;
+		float yf = c_im; //4.0*y/h;
+	    bgra.x = (xf - truncf(xf))*max_iterations;
+        bgra.y = (yf - truncf(yf))*max_iterations;
+        bgra.z = 0;
+        *(ptr + offset) = bgra;
+#else		
+        float z_re = c_re, z_im = c_im;
+        for(unsigned int n = 0; n < max_iterations; ++n) {
+            float z_re2 = z_re*z_re, z_im2 = z_im*z_im;
+            if(z_re2 + z_im2 > 4.0f) {
                 int nn = n & 0xFF;
                 // outside the set, set color
                 bgra.x = viridis[nn][0];
@@ -83,10 +89,11 @@ __global__ void mandel_float(uchar4 *ptr, int w, int h, float cx, float cy, floa
                 bgra.z = viridis[nn][2];
                 break;
             }
-            Z_im = 2*Z_re*Z_im + c_im;
-            Z_re = Z_re2 - Z_im2 + c_re;
+            z_im = 2*z_re*z_im + c_im;
+            z_re = z_re2 - z_im2 + c_re;
         }
         *(ptr + offset) = bgra;
+#endif
     }
 }
 
@@ -99,23 +106,18 @@ __global__ void mandel_double(uchar4 *ptr, int w, int h, double cx, double cy, d
 
     if(x < w && y < h) {
         uchar4 bgra = {0x0,0x0,0x0,0x0};  // inside = black
-        unsigned int MaxIterations = iter_mult*256;
-        double ImageWidth = w;
-        double ImageHeight = h;
-        double MinRe = cx - 1.0/zoom;
-        double MaxRe = cx + 1.0/zoom;
-        double MinIm = cy - 1.0/zoom;
-        double MaxIm = MinIm+(MaxRe-MinRe)*ImageHeight/ImageWidth;
-        double Re_factor = (MaxRe-MinRe)/(ImageWidth-1);
-        double Im_factor = (MaxIm-MinIm)/(ImageHeight-1);
-
-        double c_im = MinIm + y*Im_factor;
-        double c_re = MinRe + x*Re_factor;
-
-        double Z_re = c_re, Z_im = c_im;
-        for(unsigned int n=0; n<MaxIterations; ++n) {
-            double Z_re2 = Z_re*Z_re, Z_im2 = Z_im*Z_im;
-            if(Z_re2 + Z_im2 > 4.0){
+        unsigned int max_iterations = iter_mult*256;
+        zoom = 1.0f/zoom;
+        double min_re = cx - zoom;
+        double min_im = cy - zoom;
+        double re_factor = 2*zoom/(w-1);
+        double im_factor = 2*zoom/(h-1);
+        double c_re = min_re + x*re_factor;
+        double c_im = min_im + y*im_factor;        
+        double z_re = c_re, z_im = c_im;
+        for(unsigned int n = 0; n < max_iterations; ++n) {
+            double z_re2 = z_re*z_re, z_im2 = z_im*z_im;
+            if(z_re2 + z_im2 > 4.0f) {
                 int nn = n & 0xFF;
                 // outside the set, set color
                 bgra.x = viridis[nn][0];
@@ -123,8 +125,8 @@ __global__ void mandel_double(uchar4 *ptr, int w, int h, double cx, double cy, d
                 bgra.z = viridis[nn][2];
                 break;
             }
-            Z_im = 2*Z_re*Z_im + c_im;
-            Z_re = Z_re2 - Z_im2 + c_re;
+            z_im = 2*z_re*z_im + c_im;
+            z_re = z_re2 - z_im2 + c_re;
         }
         *(ptr + offset) = bgra;
     }

@@ -37,6 +37,7 @@ public class AppCUDA {
 		int[] devices = {-1};
 		if ((err = JCuda.cudaGLGetDevices(deviceCounts, devices, 1, cudaGLDeviceList.cudaGLDeviceListAll)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaGLGetDevices");
+			System.err.println("Make sure that you are running graphics on NVIDIA GPU");
 			return true;
 		}
 		if(deviceCounts[0] == 0) {

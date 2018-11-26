@@ -75,14 +75,15 @@ import static org.lwjgl.opengl.GL20.glGetUniformLocation;
 import static org.lwjgl.opengl.GL20.glLinkProgram;
 import static org.lwjgl.opengl.GL20.glShaderSource;
 import static org.lwjgl.opengl.GL20.glUniform1i;
+//import static org.lwjgl.opengl.GL20.glUniform1f;
 import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL20.glUseProgram;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
-import static org.lwjgl.stb.STBImage.stbi_image_free;
-import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
+//import static org.lwjgl.stb.STBImage.stbi_image_free;
+//import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -99,6 +100,7 @@ import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opengl.GL;
+//import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
@@ -109,9 +111,9 @@ public class AppGL {
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
-	public static int windowWidth = 800;
+	public static int windowWidth = 1600;
 	public static int windowHeight = 800;
-	public static boolean windowResized = false;
+	public static boolean windowResized = true;
 
 	private static int verts;
 	private static int basicProg;
@@ -121,8 +123,6 @@ public class AppGL {
 
 	private static Matrix4f cameraToView = new Matrix4f();
 
-	// FIXME -- make TEX size the size of the screen
-	public static final int SHARED_TEX_SIZE = 2048;
 	public static int sharedBufID, sharedTexID;
 	public static int sharedTexWidth, sharedTexHeight;
 
@@ -136,34 +136,34 @@ public class AppGL {
 		}
 		System.out.println("RESOURCES_PREFIX = \""+RESOURCES_PREFIX+"\"");
 
-		// FIXME to do more than this
-		System.out.println("Monitor size = "+monitorWidth+"x"+monitorHeight);
+		System.out.println("CUDA/GL Buffer size = "+monitorWidth+"x"+monitorHeight);
 		
 		/* caps = */ GL.createCapabilities();
 		debugProc = GLUtil.setupDebugMessageCallback();
 		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
-		initTexture();
+		initTexture(monitorWidth, monitorHeight);
 		initProgram();
 		initVerts();
 	}
 
 	// Create a colored single fullscreen triangle
 	// @formatter:off
-	// 3  *______________
-	//    |\_____________
-	//    | \____________
-	// 2  *  \___________
-	//    |   \__________
-	//    |    \_________
-	// 1  *--*--*________
-	//    |.....|\_______
-	//    |.....| \______
-	// 0  *..*..*  \_____
-	//    |.....|   \____
-	//    |.....|    \___
-	// -1 *--*--*--*--*__
-	//   -1  0  1  2  3 x position coords
-	// 0 1 2 s texture coords
+	//  t  y
+	// -1  3 *______________
+	//       |\_____________
+	//       | \____________
+	//     2 *  \___________
+	//       |   \__________
+	//       |    \_________
+	//  0  1 *--*--*________
+	//       |.....|\_______
+	//       |.....| \______
+	//     0 *..*..*  \_____
+	//       |.....|   \____
+	//       |.....|    \___
+	//  1 -1 *--*--*--*--*__
+	//      -1  0  1  2  3 x position coords
+	//       0     1     2 s texture coords
 	// @formatter:on
 	private static void initVerts() {
 		verts = glGenVertexArrays();
@@ -233,37 +233,13 @@ public class AppGL {
 		return buffer;
 	}
 
-	// my file-only code
-	private static ByteBuffer resourceToByteBuffer(String resource) throws IOException {
-		URL url = Thread.currentThread().getContextClassLoader().getResource(resource);
-		File file = new File(url.getFile());
-		FileInputStream fis = new FileInputStream(file);
-		FileChannel fc = fis.getChannel();
-		ByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-		fc.close();
-		fis.close();
-		return buffer;
-	}
-
-	private static void initTexture() throws IOException {
-		// Original texture (remove?)
-		IntBuffer width = BufferUtils.createIntBuffer(1);
-		IntBuffer height = BufferUtils.createIntBuffer(1);
-		IntBuffer components = BufferUtils.createIntBuffer(1);
-		ByteBuffer data = stbi_load_from_memory(ioResourceToByteBuffer(RESOURCES_PREFIX+"side1.png"), width, height, components,
-				4);
-		int id = glGenTextures();
-		glBindTexture(GL_TEXTURE_2D, id);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width.get(), height.get(), 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		stbi_image_free(data);
-
+	private static void initTexture(int monitorWidth, int monitorHeight) throws IOException {
 		// Shared CUDA/GL texture
 		// Shared OpenGL & CUDA buffer
 		// Generate a buffer ID
 		sharedBufID = glGenBuffers();
-		sharedTexWidth = sharedTexHeight = SHARED_TEX_SIZE;
+		sharedTexWidth = monitorWidth;
+		sharedTexHeight = monitorHeight;
 		// Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
 		// Allocate data for the buffer
@@ -331,9 +307,11 @@ public class AppGL {
 			if (windowWidth >= windowHeight) {
 				// aspect >= 1, set the width to -1 to 1, with larger height
 				cameraToView.ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1, 1);
+				//System.out.println("y=("+(-1.0f / aspect)+","+(1.0f / aspect)+")");
 			} else {
 				// aspect < 1, set the height from -1 to 1, with larger width
 				cameraToView.ortho(-1.0f * aspect, 1.0f * aspect, -1.0f, 1.0f, -1, 1);
+				//System.out.println("x=("+(-1.0f * aspect)+","+(1.0f * aspect)+")");
 			}
 		}
 	}

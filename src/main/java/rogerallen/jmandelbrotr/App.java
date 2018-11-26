@@ -119,7 +119,7 @@ public class App {
 
 		initGLFWWindow();
 		initCallbacks();
-		AppGL.init(monitorWidth,monitorHeight);
+		AppGL.init(monitorWidth, monitorHeight);
 		boolean error = AppCUDA.init();
 		return error;
 	}
