@@ -2,7 +2,7 @@
 
 A Java CUDA (via JCUDA) & OpenGL (via LWJGL) powered Mandelbrot pan/zoom application.  
 
-![Screenshot](images/screenshot1.jpg)
+![Screenshot](screenshot1.jpg)
 
 
 ## Usage
