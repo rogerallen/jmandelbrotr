@@ -6,6 +6,7 @@
 //   nvcc -ptx mandelbrot.cu -o mandelbrot.ptx
 //   
 
+// viridis color map buffer
 __device__ static unsigned char viridis[256][3] = {
     { 84,  1, 68}, { 85,  2, 68}, { 87,  3, 69}, { 88,  5, 69}, { 90,  6, 69}, { 91,  8, 70},
     { 93,  9, 70}, { 94, 11, 70}, { 96, 12, 70}, { 97, 14, 71}, { 98, 15, 71}, {100, 17, 71},
@@ -53,7 +54,7 @@ __device__ static unsigned char viridis[256][3] = {
 };
 
 extern "C" // no C++ name mangling
-__global__ void mandel_float(uchar4 *ptr, int w, int h, float cx, float cy, float zoom, int iter_mult)
+__global__ void mandel_float(uchar4 *ptr, int max_w, int max_h, int w, int h, float cx, float cy, float zoom, int iter_mult)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -63,18 +64,24 @@ __global__ void mandel_float(uchar4 *ptr, int w, int h, float cx, float cy, floa
         uchar4 bgra = {0x0,0x0,0x0,0x0}; // inside = black
         unsigned int max_iterations = iter_mult*256;
         zoom = 1.0f/zoom;
-        float min_re = cx - zoom;
-        float min_im = cy - zoom;
-        float re_factor = 2*zoom/(w-1);
-        float im_factor = 2*zoom/(h-1);
+		float zoomX = zoom;
+        float zoomY = zoom * (float)h / w;
+        if(h > w) {
+        	zoomX = zoom * (float)w / h;
+        	zoomY = zoom;
+        }
+        float min_re = cx - zoomX;
+        float min_im = cy - zoomY;
+        float re_factor = 2*zoomX/(w-1);
+        float im_factor = 2*zoomY/(h-1);
         float c_re = min_re + x*re_factor;
         float c_im = min_im + y*im_factor;        
 #if 0
 		// testing my vertex shader
-		float xf = c_re; //4.0*x/w;
-		float yf = c_im; //4.0*y/h;
-	    bgra.x = (xf - truncf(xf))*max_iterations;
-        bgra.y = (yf - truncf(yf))*max_iterations;
+		float xf = 4.0*x/w;
+		float yf = 4.0*y/h;
+	    bgra.x = abs(xf - truncf(xf))*max_iterations;
+        bgra.y = abs(yf - truncf(yf))*max_iterations;
         bgra.z = 0;
         *(ptr + offset) = bgra;
 #else		
@@ -94,11 +101,15 @@ __global__ void mandel_float(uchar4 *ptr, int w, int h, float cx, float cy, floa
         }
         *(ptr + offset) = bgra;
 #endif
+    } 
+    else if(x < max_w && y < max_h) {
+         uchar4 bgra = {0x0,0xff,0xff,0x0};
+    	*(ptr + offset) = bgra;
     }
 }
 
 extern "C" // no C++ name mangling
-__global__ void mandel_double(uchar4 *ptr, int w, int h, double cx, double cy, double zoom, int iter_mult)
+__global__ void mandel_double(uchar4 *ptr, int max_w, int max_h, int w, int h, double cx, double cy, double zoom, int iter_mult)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -108,10 +119,16 @@ __global__ void mandel_double(uchar4 *ptr, int w, int h, double cx, double cy, d
         uchar4 bgra = {0x0,0x0,0x0,0x0};  // inside = black
         unsigned int max_iterations = iter_mult*256;
         zoom = 1.0f/zoom;
-        double min_re = cx - zoom;
-        double min_im = cy - zoom;
-        double re_factor = 2*zoom/(w-1);
-        double im_factor = 2*zoom/(h-1);
+ 		double zoomX = zoom;
+        double zoomY = zoom * (double)h / w;
+        if(h > w) {
+        	zoomX = zoom * (double)w / h;
+        	zoomY = zoom;
+        }
+        double re_factor = 2*zoomX/(w-1);
+        double im_factor = 2*zoomY/(h-1);
+        double min_re = cx - zoomX;
+        double min_im = cy - zoomY;
         double c_re = min_re + x*re_factor;
         double c_im = min_im + y*im_factor;        
         double z_re = c_re, z_im = c_im;
@@ -129,5 +146,9 @@ __global__ void mandel_double(uchar4 *ptr, int w, int h, double cx, double cy, d
             z_re = z_re2 - z_im2 + c_re;
         }
         *(ptr + offset) = bgra;
+    } 
+    else if(x < max_w && y < max_h) {
+         uchar4 bgra = {0x0,0xff,0xff,0x0};
+    	*(ptr + offset) = bgra;
     }
 }

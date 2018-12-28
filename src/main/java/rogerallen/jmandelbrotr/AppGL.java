@@ -38,7 +38,7 @@ import static org.lwjgl.opengl.GL11.GL_RGBA8;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_2D;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER;
 import static org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER;
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLE_STRIP;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glBindTexture;
 import static org.lwjgl.opengl.GL11.glClear;
@@ -53,10 +53,11 @@ import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL12.GL_BGRA;
 import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
 import static org.lwjgl.opengl.GL15.GL_DYNAMIC_COPY;
-import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
 import static org.lwjgl.opengl.GL15.glBindBuffer;
 import static org.lwjgl.opengl.GL15.glBufferData;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
+import static org.lwjgl.opengl.GL15.glBufferSubData;
 import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
 import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
 import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
@@ -75,15 +76,12 @@ import static org.lwjgl.opengl.GL20.glGetUniformLocation;
 import static org.lwjgl.opengl.GL20.glLinkProgram;
 import static org.lwjgl.opengl.GL20.glShaderSource;
 import static org.lwjgl.opengl.GL20.glUniform1i;
-//import static org.lwjgl.opengl.GL20.glUniform1f;
 import static org.lwjgl.opengl.GL20.glUniformMatrix4fv;
 import static org.lwjgl.opengl.GL20.glUseProgram;
 import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
-//import static org.lwjgl.stb.STBImage.stbi_image_free;
-//import static org.lwjgl.stb.STBImage.stbi_load_from_memory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -100,22 +98,22 @@ import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opengl.GL;
-//import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GLUtil;
 import org.lwjgl.system.Callback;
 
 public class AppGL {
-	
-	private static String RESOURCES_PREFIX  = "";
-	
+
+	private static String RESOURCES_PREFIX = "";
+
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
-	public static int windowWidth = 1600;
+	public static int windowWidth = 800;
 	public static int windowHeight = 800;
 	public static boolean windowResized = true;
 
 	private static int verts;
+	private static int positionVbo, texCoordsVbo;
 	private static int basicProg;
 	private static int basicProgAttrPosition;
 	private static int basicProgAttrTexCoords;
@@ -128,16 +126,18 @@ public class AppGL {
 
 	public static void init(int monitorWidth, int monitorHeight) throws IOException {
 		// FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
-		// If I run in Eclipse, I load files as foo.  If I run in a jar, I load files as resources/foo
+		// If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
+		// resources/foo
 		// This is a hack workaround.
-		InputStream source_in_jar = Thread.currentThread().getContextClassLoader().getResourceAsStream("resources/side1.png");
-		if(source_in_jar != null) {
+		InputStream source_in_jar = Thread.currentThread().getContextClassLoader()
+				.getResourceAsStream("resources/mandelbrot.cu");
+		if (source_in_jar != null) {
 			RESOURCES_PREFIX = "resources/"; // JAR Compile
 		}
-		System.out.println("RESOURCES_PREFIX = \""+RESOURCES_PREFIX+"\"");
+		System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
 
-		System.out.println("CUDA/GL Buffer size = "+monitorWidth+"x"+monitorHeight);
-		
+		System.out.println("CUDA/GL Buffer size = " + monitorWidth + "x" + monitorHeight);
+
 		/* caps = */ GL.createCapabilities();
 		debugProc = GLUtil.setupDebugMessageCallback();
 		glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
@@ -148,44 +148,40 @@ public class AppGL {
 
 	// Create a colored single fullscreen triangle
 	// @formatter:off
-	//  t  y
-	// -1  3 *______________
-	//       |\_____________
-	//       | \____________
-	//     2 *  \___________
-	//       |   \__________
-	//       |    \_________
-	//  0  1 *--*--*________
-	//       |.....|\_______
-	//       |.....| \______
-	//     0 *..*..*  \_____
-	//       |.....|   \____
-	//       |.....|    \___
-	//  1 -1 *--*--*--*--*__
-	//      -1  0  1  2  3 x position coords
-	//       0     1     2 s texture coords
+	// t y
+	// 0 0 C--*--D triangle_strip ABCD
+	//     |\....|
+	//     |.\...|
+	//     *..*..*
+	//     |...\.|
+	//     |....\|
+	// 1 1 A--*--B
+	//     0     1 x position coords
+	//     0     1 s texture coords
 	// @formatter:on
 	private static void initVerts() {
 		verts = glGenVertexArrays();
 		glBindVertexArray(verts);
-		int positionVbo = glGenBuffers();
-		FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 3);
-		fb.put(-1.0f).put(3.0f);
-		fb.put(-1.0f).put(-1.0f);
-		fb.put(3.0f).put(-1.0f);
+		positionVbo = glGenBuffers();
+		FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 4);
+		fb.put(0.0f).put(1.0f);
+		fb.put(1.0f).put(1.0f);
+		fb.put(0.0f).put(0.0f);
+		fb.put(1.0f).put(0.0f);
 		fb.flip();
 		glBindBuffer(GL_ARRAY_BUFFER, positionVbo);
-		glBufferData(GL_ARRAY_BUFFER, fb, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
 		glVertexAttribPointer(basicProgAttrPosition, 2, GL_FLOAT, false, 0, 0L);
 		glEnableVertexAttribArray(basicProgAttrPosition);
-		int texCoordsVbo = glGenBuffers();
-		fb = BufferUtils.createFloatBuffer(2 * 3);
-		fb.put(0.0f).put(-1.0f);
+		texCoordsVbo = glGenBuffers();
+		fb = BufferUtils.createFloatBuffer(2 * 4);
 		fb.put(0.0f).put(1.0f);
-		fb.put(2.0f).put(1.0f);
+		fb.put(1.0f).put(1.0f);
+		fb.put(0.0f).put(0.0f);
+		fb.put(1.0f).put(0.0f);
 		fb.flip();
 		glBindBuffer(GL_ARRAY_BUFFER, texCoordsVbo);
-		glBufferData(GL_ARRAY_BUFFER, fb, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
 		glVertexAttribPointer(basicProgAttrTexCoords, 2, GL_FLOAT, true, 0, 0L);
 		glEnableVertexAttribArray(basicProgAttrTexCoords);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -277,8 +273,8 @@ public class AppGL {
 
 	private static void initProgram() throws IOException {
 		int program = glCreateProgram();
-		int vshader = createShader(RESOURCES_PREFIX+"basic_vert.glsl", GL_VERTEX_SHADER);
-		int fshader = createShader(RESOURCES_PREFIX+"basic_frag.glsl", GL_FRAGMENT_SHADER);
+		int vshader = createShader(RESOURCES_PREFIX + "basic_vert.glsl", GL_VERTEX_SHADER);
+		int fshader = createShader(RESOURCES_PREFIX + "basic_frag.glsl", GL_FRAGMENT_SHADER);
 		glAttachShader(program, vshader);
 		glAttachShader(program, fshader);
 		glLinkProgram(program);
@@ -298,26 +294,61 @@ public class AppGL {
 		basicProg = program;
 	}
 
+	// Create a colored single fullscreen triangle
+	// @formatter:off
+	// t y
+	// 0 0 C--*--D triangle_strip ABCD
+	//     |\....|
+	//     |.\...|
+	//     *..*..*
+	//     |...\.|
+	//     |....\|
+	// 1 1 A--*--B
+	//     0     1 x position coords
+	//     0     1 s texture coords
+	// @formatter:on
 	public static void handleResize() {
 		glViewport(0, 0, windowWidth, windowHeight);
+		float winTexWidthRatio = (float) windowWidth / sharedTexWidth;
+		float winTexHeightRatio = (float) windowHeight / sharedTexHeight;
 		if (windowResized) {
 			windowResized = false;
-			float aspect = (float) windowWidth / (float) windowHeight;
+
+			// anchor viewport to upper left corner (0, 0) to match the anchor on
+			// the sharedTexture surface. See picture above.
 			cameraToView.identity();
+			float xpos = 1.0f, ypos = 1.0f;
 			if (windowWidth >= windowHeight) {
-				// aspect >= 1, set the width to -1 to 1, with larger height
-				cameraToView.ortho(-1.0f, 1.0f, -1.0f / aspect, 1.0f / aspect, -1, 1);
-				//System.out.println("y=("+(-1.0f / aspect)+","+(1.0f / aspect)+")");
+				ypos = (float) windowHeight / (float) windowWidth;
 			} else {
-				// aspect < 1, set the height from -1 to 1, with larger width
-				cameraToView.ortho(-1.0f * aspect, 1.0f * aspect, -1.0f, 1.0f, -1, 1);
-				//System.out.println("x=("+(-1.0f * aspect)+","+(1.0f * aspect)+")");
+				xpos = (float) windowWidth / (float) windowHeight;
 			}
+			cameraToView.ortho(0.0f, xpos, ypos, 0.0f, -1, 1);
+
+			// update on-screen triangles to reflect the aspect ratio change.
+			FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 4);
+			fb.put(0.0f).put(ypos);
+			fb.put(xpos).put(ypos);
+			fb.put(0.0f).put(0.0f);
+			fb.put(xpos).put(0.0f);
+			fb.flip();
+			glBindBuffer(GL_ARRAY_BUFFER, positionVbo);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
+			fb = BufferUtils.createFloatBuffer(2 * 4);
+			fb.put(0.0f * winTexWidthRatio).put(1.0f * winTexHeightRatio);
+			fb.put(1.0f * winTexWidthRatio).put(1.0f * winTexHeightRatio);
+			fb.put(0.0f * winTexWidthRatio).put(0.0f * winTexHeightRatio);
+			fb.put(1.0f * winTexWidthRatio).put(0.0f * winTexHeightRatio);
+			fb.flip();
+			glBindBuffer(GL_ARRAY_BUFFER, texCoordsVbo);
+			glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
 		}
+
 	}
 
 	public static void render() {
 		glClear(GL_COLOR_BUFFER_BIT);
+		
 		glUseProgram(basicProg);
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		cameraToView.get(fb);
@@ -331,7 +362,8 @@ public class AppGL {
 		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTexWidth, sharedTexHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}

@@ -17,35 +17,36 @@ public class AppCUDA {
 	public static double centerX, centerY, zoom;
 	public static int iterMult;
 	public static boolean doublePrecision;
-	
+
 	public static cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
 	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
 	// return true when there is an error
 	public static boolean init() {
 
-		centerX = -0.5; 
+		centerX = -0.5;
 		centerY = 0.0;
 		zoom = 0.5;
 		iterMult = 1;
 		doublePrecision = false;
 
 		int err;
-		
+
 		// find the first GL device & use that.
-		int[] deviceCounts = {-1};
-		int[] devices = {-1};
-		if ((err = JCuda.cudaGLGetDevices(deviceCounts, devices, 1, cudaGLDeviceList.cudaGLDeviceListAll)) != cudaError.cudaSuccess) {
+		int[] deviceCounts = { -1 };
+		int[] devices = { -1 };
+		if ((err = JCuda.cudaGLGetDevices(deviceCounts, devices, 1,
+				cudaGLDeviceList.cudaGLDeviceListAll)) != cudaError.cudaSuccess) {
 			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaGLGetDevices");
 			System.err.println("Make sure that you are running graphics on NVIDIA GPU");
 			return true;
 		}
-		if(deviceCounts[0] == 0) {
+		if (deviceCounts[0] == 0) {
 			System.err.println("ERROR: no cudaGLGetDevices found.");
-			return true;			
+			return true;
 		}
 		if ((err = JCuda.cudaSetDevice(devices[0])) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaSetDevice("+devices[0]+")");
+			System.err.println("ERROR: (" + errStr(err) + ") failed to cudaSetDevice(" + devices[0] + ")");
 			return true;
 		}
 		// CUDA writes to the buffer, OpenGL reads, then this repeats.
@@ -83,11 +84,11 @@ public class AppCUDA {
 
 	public static void render() {
 		CUdeviceptr devPtr = mapResouce(cudaPBOHandle);
-		mandelbrot(devPtr, AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX, centerY, zoom, iterMult,
-				doublePrecision);
+		mandelbrot(devPtr, AppGL.windowWidth, AppGL.windowHeight, AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX,
+				centerY, zoom, iterMult, doublePrecision);
 		unmapResouce(cudaPBOHandle);
 	}
-	
+
 	private static String errStr(int err) {
 		return JCuda.cudaGetErrorName(err) + "=" + err;
 	}
@@ -117,15 +118,25 @@ public class AppCUDA {
 		;
 	}
 
-	private static void mandelbrot(CUdeviceptr devPtr, int w, int h, double cx, double cy, double zoom, int iter,
-			boolean doublePrec) {
+	private static void mandelbrot(CUdeviceptr devPtr, int winWidth, int winHeight, int texWidth, int texHeight,
+			double cx, double cy, double zoom, int iter, boolean doublePrec) {
 		int blockSize = 16; // 256 threads per block
 		int err;
+
+		int mandelWidth = Math.min(winWidth, texWidth);
+		int mandelHeight = Math.min(winHeight, texHeight);
 		if (doublePrec) {
-			Pointer doubleParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { w }),
-					Pointer.to(new int[] { h }), Pointer.to(new double[] { cx }), Pointer.to(new double[] { cy }),
-					Pointer.to(new double[] { zoom }), Pointer.to(new int[] { iter }));
-			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotDoubleKernel, w / blockSize, h / blockSize, 1, // grids
+			Pointer doubleParams = Pointer.to(Pointer.to(devPtr), 
+					Pointer.to(new int[] { texWidth }),
+					Pointer.to(new int[] { texHeight }), 
+					Pointer.to(new int[] { mandelWidth }),
+					Pointer.to(new int[] { mandelHeight }), 
+					Pointer.to(new double[] { cx }),
+					Pointer.to(new double[] { cy }), 
+					Pointer.to(new double[] { zoom }), 
+					Pointer.to(new int[] { iter }));
+			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotDoubleKernel, texWidth / blockSize, texHeight / blockSize,
+					1, // grids
 					blockSize, blockSize, 1, // block
 					0, null, // shared memory, stream
 					doubleParams, null // params, extra
@@ -133,12 +144,17 @@ public class AppCUDA {
 				System.err.println("ERROR: (" + errStr(err) + ") in cuLaunchKernel for double_kernel");
 			}
 		} else {
-			Pointer floatParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { w }),
-					Pointer.to(new int[] { h }), Pointer.to(new float[] { (float) cx }),
-					Pointer.to(new float[] { (float) cy }), Pointer.to(new float[] { (float) zoom }),
+			Pointer floatParams = Pointer.to(Pointer.to(devPtr), 
+					Pointer.to(new int[] { texWidth }),
+					Pointer.to(new int[] { texHeight }), 
+					Pointer.to(new int[] { mandelWidth }),
+					Pointer.to(new int[] { mandelHeight }), 
+					Pointer.to(new float[] { (float) cx }),
+					Pointer.to(new float[] { (float) cy }), 
+					Pointer.to(new float[] { (float) zoom }),
 					Pointer.to(new int[] { iter }));
-			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotFloatKernel, w / blockSize, h / blockSize, 1, blockSize,
-					blockSize, 1, 0, null, floatParams, null)) != cudaError.cudaSuccess) {
+			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotFloatKernel, texWidth / blockSize, texHeight / blockSize, 1,
+					blockSize, blockSize, 1, 0, null, floatParams, null)) != cudaError.cudaSuccess) {
 				System.err.println("ERROR: (" + errStr(err) + ") in cuLaunchKernel for float_kernel");
 			}
 		}
