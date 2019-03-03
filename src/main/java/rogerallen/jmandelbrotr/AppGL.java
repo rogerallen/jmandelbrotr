@@ -103,7 +103,7 @@ import org.lwjgl.system.Callback;
 
 public class AppGL {
 
-	private static String RESOURCES_PREFIX = "";
+	public static String RESOURCES_PREFIX = "";
 
 	// private static GLCapabilities caps;
 	private static Callback debugProc;

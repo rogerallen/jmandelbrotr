@@ -6,14 +6,28 @@ import jcuda.driver.CUfunction;
 import jcuda.driver.CUgraphicsResource;
 import jcuda.driver.CUmodule;
 import jcuda.driver.JCudaDriver;
+import jcuda.nvrtc.nvrtcProgram;
 import jcuda.runtime.JCuda;
+import jcuda.runtime.cudaDeviceProp;
 import jcuda.runtime.cudaError;
 import jcuda.runtime.cudaGLDeviceList;
 import jcuda.runtime.cudaGraphicsRegisterFlags;
 import jcuda.runtime.cudaGraphicsResource;
 
+import static jcuda.nvrtc.JNvrtc.nvrtcCompileProgram;
+import static jcuda.nvrtc.JNvrtc.nvrtcCreateProgram;
+import static jcuda.nvrtc.JNvrtc.nvrtcGetProgramLog;
+import static jcuda.nvrtc.JNvrtc.nvrtcGetPTX;
+import static jcuda.nvrtc.JNvrtc.nvrtcDestroyProgram;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+
 public class AppCUDA {
 
+	// realtime compile or load ptx?
+	private final static boolean USE_REAL_TIME_COMPILE = true;
+	
 	public static double centerX, centerY, zoom;
 	public static int iterMult;
 	public static boolean doublePrecision;
@@ -22,7 +36,7 @@ public class AppCUDA {
 	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
 	// return true when there is an error
-	public static boolean init() {
+	public static boolean init() throws IOException {
 
 		centerX = -0.5;
 		centerY = 0.0;
@@ -58,13 +72,67 @@ public class AppCUDA {
 			return true;
 		}
 
-		System.out.println("Loading cuda kernels...");
 		CUmodule module = new CUmodule();
-		String ptxPath = "src/main/resources/mandelbrot.ptx";
-		if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
-			System.err.println("ERROR: (" + errStr(err) + ") failed to find " + ptxPath);
-			return true;
+		if (USE_REAL_TIME_COMPILE) {
+			System.out.println("Compiling cuda kernels...");
+			String programSourceCode = StandardCharsets.UTF_8
+					.decode(AppGL.ioResourceToByteBuffer(AppGL.RESOURCES_PREFIX + "mandelbrot.cu")).toString();
+			// Use the NVRTC to create a program by compiling the source code
+			nvrtcProgram program = new nvrtcProgram();
+			if ((err = nvrtcCreateProgram(program, programSourceCode, null, 0, null, null)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to nvrtcCreateProgram");
+				return true;
+			}
+			cudaDeviceProp devProp = new cudaDeviceProp();
+			if ((err = JCuda.cudaGetDeviceProperties(devProp, 0)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to cudaGetDeviceProperties");
+				return true;
+			}
+			int sm_version = devProp.major * 10 + devProp.minor;
+			String compileOptions[] = { "--gpu-architecture=compute_" + sm_version // probably not robust, but ok to
+																					// start.
+			};
+			for (String s : compileOptions) {
+				System.out.println("  " + s);
+			}
+			if ((err = nvrtcCompileProgram(program, compileOptions.length, compileOptions)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to nvrtcCompileProgram");
+				return true;
+			}
+
+			String programLog[] = new String[1];
+			if ((err = nvrtcGetProgramLog(program, programLog)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to nvrtcGetProgramLog");
+				return true;
+			}
+			if (!programLog[0].equals("")) {
+				System.out.println("Program compilation log:\n" + programLog[0]);
+			}
+			
+			String[] ptx = new String[1];
+
+			if ((err = nvrtcGetPTX(program, ptx)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to nvrtcGetPTX");
+				return true;
+			}
+			if ((err = nvrtcDestroyProgram(program)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") Unable to nvrtcDestroyProgram");
+				return true;
+			}
+			System.out.println("Loading cuda kernels...");
+			if ((err = JCudaDriver.cuModuleLoadData(module, ptx[0])) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") failed to load ptx.");
+				return true;
+			}
+		} else {
+			System.out.println("Loading ptx directly...");
+			String ptxPath = "src/main/resources/mandelbrot.ptx";
+			if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
+				System.err.println("ERROR: (" + errStr(err) + ") failed to find " + ptxPath);
+				return true;
+			}
 		}
+
 		String curFunction = "mandel_float";
 		mandelbrotFloatKernel = new CUfunction();
 		if ((err = JCudaDriver.cuModuleGetFunction(mandelbrotFloatKernel, module,
@@ -126,15 +194,10 @@ public class AppCUDA {
 		int mandelWidth = Math.min(winWidth, texWidth);
 		int mandelHeight = Math.min(winHeight, texHeight);
 		if (doublePrec) {
-			Pointer doubleParams = Pointer.to(Pointer.to(devPtr), 
-					Pointer.to(new int[] { texWidth }),
-					Pointer.to(new int[] { texHeight }), 
-					Pointer.to(new int[] { mandelWidth }),
-					Pointer.to(new int[] { mandelHeight }), 
-					Pointer.to(new double[] { cx }),
-					Pointer.to(new double[] { cy }), 
-					Pointer.to(new double[] { zoom }), 
-					Pointer.to(new int[] { iter }));
+			Pointer doubleParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { texWidth }),
+					Pointer.to(new int[] { texHeight }), Pointer.to(new int[] { mandelWidth }),
+					Pointer.to(new int[] { mandelHeight }), Pointer.to(new double[] { cx }),
+					Pointer.to(new double[] { cy }), Pointer.to(new double[] { zoom }), Pointer.to(new int[] { iter }));
 			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotDoubleKernel, texWidth / blockSize, texHeight / blockSize,
 					1, // grids
 					blockSize, blockSize, 1, // block
@@ -144,14 +207,10 @@ public class AppCUDA {
 				System.err.println("ERROR: (" + errStr(err) + ") in cuLaunchKernel for double_kernel");
 			}
 		} else {
-			Pointer floatParams = Pointer.to(Pointer.to(devPtr), 
-					Pointer.to(new int[] { texWidth }),
-					Pointer.to(new int[] { texHeight }), 
-					Pointer.to(new int[] { mandelWidth }),
-					Pointer.to(new int[] { mandelHeight }), 
-					Pointer.to(new float[] { (float) cx }),
-					Pointer.to(new float[] { (float) cy }), 
-					Pointer.to(new float[] { (float) zoom }),
+			Pointer floatParams = Pointer.to(Pointer.to(devPtr), Pointer.to(new int[] { texWidth }),
+					Pointer.to(new int[] { texHeight }), Pointer.to(new int[] { mandelWidth }),
+					Pointer.to(new int[] { mandelHeight }), Pointer.to(new float[] { (float) cx }),
+					Pointer.to(new float[] { (float) cy }), Pointer.to(new float[] { (float) zoom }),
 					Pointer.to(new int[] { iter }));
 			if ((err = JCudaDriver.cuLaunchKernel(mandelbrotFloatKernel, texWidth / blockSize, texHeight / blockSize, 1,
 					blockSize, blockSize, 1, 0, null, floatParams, null)) != cudaError.cudaSuccess) {
