@@ -99,7 +99,7 @@ public class App {
 		System.out.println("Press ESC to quit.");
 		try {
 			boolean error = init();
-			if(!error) {
+			if (!error) {
 				loop();
 				destroy();
 			}
@@ -285,7 +285,8 @@ public class App {
 			System.out.println("write save.png\n");
 			saveImage = false;
 			ByteBuffer buffer = AppGL.getPixels();
-			// TODO - could read into the buffer, then in another thread save the file to avoid
+			// TODO - could read into the buffer, then in another thread save the file to
+			// avoid
 			// refresh delays.
 			File file = new File("save.png");
 			String format = "PNG"; // Example: "PNG" or "JPG"

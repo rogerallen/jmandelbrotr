@@ -348,7 +348,7 @@ public class AppGL {
 
 	public static void render() {
 		glClear(GL_COLOR_BUFFER_BIT);
-		
+
 		glUseProgram(basicProg);
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		cameraToView.get(fb);
@@ -363,7 +363,7 @@ public class AppGL {
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-		
+
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}
