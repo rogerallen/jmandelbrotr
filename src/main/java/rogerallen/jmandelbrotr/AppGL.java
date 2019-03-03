@@ -108,9 +108,7 @@ public class AppGL {
 	// private static GLCapabilities caps;
 	private static Callback debugProc;
 
-	public static int windowWidth = 800;
-	public static int windowHeight = 800;
-	public static boolean windowResized = true;
+	private static AppWindow window;
 
 	private static int verts;
 	private static int positionVbo, texCoordsVbo;
@@ -124,7 +122,8 @@ public class AppGL {
 	public static int sharedBufID, sharedTexID;
 	public static int sharedTexWidth, sharedTexHeight;
 
-	public static void init(int monitorWidth, int monitorHeight) throws IOException {
+	public static void init(AppWindow appWindow, int monitorWidth, int monitorHeight) throws IOException {
+		window = appWindow;
 		// FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
 		// If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
 		// resources/foo
@@ -308,20 +307,21 @@ public class AppGL {
 	//     0     1 s texture coords
 	// @formatter:on
 	public static void handleResize() {
-		glViewport(0, 0, windowWidth, windowHeight);
-		float winTexWidthRatio = (float) windowWidth / sharedTexWidth;
-		float winTexHeightRatio = (float) windowHeight / sharedTexHeight;
-		if (windowResized) {
-			windowResized = false;
+		glViewport(0, 0, window.width(), window.height());
+		float winTexWidthRatio = (float) window.width() / sharedTexWidth;
+		float winTexHeightRatio = (float) window.height() / sharedTexHeight;
+		if (window.resized()) {
+			System.out.println("HANDLED "+window);
+			window.resizeHandled();
 
 			// anchor viewport to upper left corner (0, 0) to match the anchor on
 			// the sharedTexture surface. See picture above.
 			cameraToView.identity();
 			float xpos = 1.0f, ypos = 1.0f;
-			if (windowWidth >= windowHeight) {
-				ypos = (float) windowHeight / (float) windowWidth;
+			if (window.width() >= window.height()) {
+				ypos = (float) window.height() / (float) window.width();
 			} else {
-				xpos = (float) windowWidth / (float) windowHeight;
+				xpos = (float) window.width() / (float) window.height();
 			}
 			cameraToView.ortho(0.0f, xpos, ypos, 0.0f, -1, 1);
 
@@ -373,8 +373,8 @@ public class AppGL {
 	}
 
 	public static ByteBuffer getPixels() {
-		ByteBuffer buffer = BufferUtils.createByteBuffer(AppGL.windowWidth * AppGL.windowHeight * 4);
-		glReadPixels(0, 0, AppGL.windowWidth, AppGL.windowHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+		ByteBuffer buffer = BufferUtils.createByteBuffer(window.width() * window.height() * 4);
+		glReadPixels(0, 0, window.width(), window.height(), GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 		return buffer;
 	}
 }

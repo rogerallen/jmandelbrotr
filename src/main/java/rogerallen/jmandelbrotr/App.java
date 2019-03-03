@@ -74,8 +74,9 @@ import jcuda.runtime.JCuda;
 
 public class App {
 
-	private long window;
 	private final String WINDOW_TITLE = "JMandelbrotr";
+	private final int WINDOW_START_WIDTH = 800, WINDOW_START_HEIGHT = 800;
+	private AppWindow window;
 
 	private boolean switchFullscreen;
 	private boolean isFullscreen;
@@ -119,18 +120,18 @@ public class App {
 
 		initGLFWWindow();
 		initCallbacks();
-		AppGL.init(monitorWidth, monitorHeight);
-		boolean error = AppCUDA.init();
+		AppGL.init(window, monitorWidth, monitorHeight);
+		boolean error = AppCUDA.init(window);
 		return error;
 	}
 
 	private void initCallbacks() {
 		// keys
-		glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
+		glfwSetKeyCallback(window.id(), (windowID, key, scancode, action, mods) -> {
 			if (action == GLFW_PRESS) {
 				switch (key) {
 				case GLFW_KEY_ESCAPE:
-					glfwSetWindowShouldClose(window, true);
+					glfwSetWindowShouldClose(windowID, true);
 					break;
 				case GLFW_KEY_D:
 					AppCUDA.doublePrecision = true;
@@ -168,19 +169,18 @@ public class App {
 		});
 
 		// resize
-		glfwSetFramebufferSizeCallback(window, (long window, int width, int height) -> {
-			if (width > 0 && height > 0 && (AppGL.windowWidth != width || AppGL.windowHeight != height)) {
-				AppGL.windowWidth = width;
-				AppGL.windowHeight = height;
-				AppGL.windowResized = true;
+		glfwSetFramebufferSizeCallback(window.id(), (long windowID, int width, int height) -> {
+			if (width > 0 && height > 0 && (window.width() != width || window.height() != height)) {
+				window.width(width);
+				window.height(height);
 			}
 		});
 
 		// mouse up/down
-		glfwSetMouseButtonCallback(window, (window, button, action, mods) -> {
+		glfwSetMouseButtonCallback(window.id(), (windowID, button, action, mods) -> {
 			if (button == GLFW_MOUSE_BUTTON_1) {
 				if (action == GLFW_PRESS) {
-					glfwGetCursorPos(window, mouseBufX, mouseBufY);
+					glfwGetCursorPos(windowID, mouseBufX, mouseBufY);
 					mouseStartX = mouseBufX.get(0);
 					mouseStartY = mouseBufY.get(0);
 					centerStartX = AppCUDA.centerX;
@@ -193,7 +193,7 @@ public class App {
 		});
 
 		// mouse scroll
-		glfwSetScrollCallback(window, (window, xoffset, yoffset) -> {
+		glfwSetScrollCallback(window.id(), (windowID, xoffset, yoffset) -> {
 			double zoomFactor = Math.abs(/* yoffset */ 1.1);
 			if (yoffset > 0) {
 				AppCUDA.zoom *= zoomFactor;
@@ -216,24 +216,26 @@ public class App {
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		// Create the window
-		window = glfwCreateWindow(AppGL.windowWidth, AppGL.windowHeight, WINDOW_TITLE, NULL, NULL);
-		if (window == NULL)
+		window = new AppWindow(WINDOW_START_WIDTH, WINDOW_START_HEIGHT, WINDOW_TITLE);
+		long windowID = glfwCreateWindow(window.width(), window.height(), window.title(), NULL, NULL);
+		if (windowID == NULL)
 			throw new RuntimeException("Failed to create the GLFW window");
+		window.id(windowID);
 
 		// Center the window
 		try (MemoryStack stack = stackPush()) {
 			IntBuffer pWidth = stack.mallocInt(1); // int*
 			IntBuffer pHeight = stack.mallocInt(1); // int*
-			glfwGetWindowSize(window, pWidth, pHeight);
+			glfwGetWindowSize(window.id(), pWidth, pHeight);
 			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 			monitorWidth = vidmode.width();
 			monitorHeight = vidmode.height();
-			glfwSetWindowPos(window, (vidmode.width() - pWidth.get(0)) / 2, (vidmode.height() - pHeight.get(0)) / 2);
+			glfwSetWindowPos(window.id(), (vidmode.width() - pWidth.get(0)) / 2, (vidmode.height() - pHeight.get(0)) / 2);
 		}
 
-		glfwMakeContextCurrent(window);
+		glfwMakeContextCurrent(window.id());
 		glfwSwapInterval(1); // Enable v-sync
-		glfwShowWindow(window);
+		glfwShowWindow(window.id());
 	}
 
 	private void update() {
@@ -242,15 +244,15 @@ public class App {
 			if (isFullscreen) {
 				isFullscreen = false;
 				GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-				glfwSetWindowMonitor(window, 0, // no monitor, so go windowed.
+				glfwSetWindowMonitor(window.id(), 0, // no monitor, so go windowed.
 						(vidmode.width() - prevWindowWidth) / 2, (vidmode.height() - prevWindowHeight) / 2,
 						prevWindowWidth, prevWindowHeight, 0);
 			} else {
 				isFullscreen = true;
-				prevWindowWidth = AppGL.windowWidth;
-				prevWindowHeight = AppGL.windowHeight;
+				prevWindowWidth = window.width();
+				prevWindowHeight = window.height();
 				GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-				glfwSetWindowMonitor(window, glfwGetPrimaryMonitor(), 0, 0, vidmode.width(), vidmode.height(),
+				glfwSetWindowMonitor(window.id(), glfwGetPrimaryMonitor(), 0, 0, vidmode.width(), vidmode.height(),
 						vidmode.refreshRate());
 			}
 		}
@@ -263,16 +265,16 @@ public class App {
 		}
 
 		if (mouseDown) {
-			glfwGetCursorPos(window, mouseBufX, mouseBufY);
+			glfwGetCursorPos(window.id(), mouseBufX, mouseBufY);
 			double x = mouseBufX.get(0);
 			double y = mouseBufY.get(0);
 			double dx = x - mouseStartX;
 			double dy = y - mouseStartY;
 			double pixels_per_mspace;
-			if (AppGL.windowWidth > AppGL.windowHeight) {
-				pixels_per_mspace = AppGL.windowWidth * AppCUDA.zoom;
+			if (window.width() > window.height()) {
+				pixels_per_mspace = window.width() * AppCUDA.zoom;
 			} else {
-				pixels_per_mspace = AppGL.windowHeight * AppCUDA.zoom;
+				pixels_per_mspace = window.height() * AppCUDA.zoom;
 			}
 			double mspace_per_pixel = 2.0 / pixels_per_mspace;
 			double center_delta_x = dx * mspace_per_pixel;
@@ -286,19 +288,18 @@ public class App {
 			saveImage = false;
 			ByteBuffer buffer = AppGL.getPixels();
 			// TODO - could read into the buffer, then in another thread save the file to
-			// avoid
-			// refresh delays.
+			// avoid refresh delays.
 			File file = new File("save.png");
 			String format = "PNG"; // Example: "PNG" or "JPG"
-			BufferedImage image = new BufferedImage(AppGL.windowWidth, AppGL.windowHeight, BufferedImage.TYPE_INT_RGB);
+			BufferedImage image = new BufferedImage(window.width(), window.height(), BufferedImage.TYPE_INT_RGB);
 
-			for (int x = 0; x < AppGL.windowWidth; x++) {
-				for (int y = 0; y < AppGL.windowHeight; y++) {
-					int i = (x + (AppGL.windowWidth * y)) * 4;
+			for (int x = 0; x < window.width(); x++) {
+				for (int y = 0; y < window.height(); y++) {
+					int i = (x + (window.width() * y)) * 4;
 					int r = buffer.get(i) & 0xFF;
 					int g = buffer.get(i + 1) & 0xFF;
 					int b = buffer.get(i + 2) & 0xFF;
-					image.setRGB(x, AppGL.windowHeight - (y + 1), (0xFF << 24) | (r << 16) | (g << 8) | b);
+					image.setRGB(x, window.height() - (y + 1), (0xFF << 24) | (r << 16) | (g << 8) | b);
 				}
 			}
 
@@ -311,19 +312,19 @@ public class App {
 	}
 
 	private void loop() {
-		while (!glfwWindowShouldClose(window)) {
+		while (!glfwWindowShouldClose(window.id())) {
 			glfwPollEvents();
 			AppGL.handleResize();
 			update();
 			AppCUDA.render();
 			AppGL.render();
-			glfwSwapBuffers(window); // swap the color buffers
+			glfwSwapBuffers(window.id()); // swap the color buffers
 		}
 	}
 
 	private void destroy() {
-		glfwFreeCallbacks(window);
-		glfwDestroyWindow(window);
+		glfwFreeCallbacks(window.id());
+		glfwDestroyWindow(window.id());
 		AppGL.destroy();
 		glfwTerminate();
 		glfwSetErrorCallback(null).free();

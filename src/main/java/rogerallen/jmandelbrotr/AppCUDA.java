@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 
 public class AppCUDA {
 
+	private static AppWindow window;
 	// realtime compile or load ptx?
 	private final static boolean USE_REAL_TIME_COMPILE = true;
 
@@ -36,8 +37,10 @@ public class AppCUDA {
 	private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
 	// return true when there is an error
-	public static boolean init() throws IOException {
+	public static boolean init(AppWindow appWindow) throws IOException {
 
+		window = appWindow;
+		
 		centerX = -0.5;
 		centerY = 0.0;
 		zoom = 0.5;
@@ -168,7 +171,7 @@ public class AppCUDA {
 
 	public static void render() {
 		CUdeviceptr devPtr = mapResouce(cudaPBOHandle);
-		mandelbrot(devPtr, AppGL.windowWidth, AppGL.windowHeight, AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX,
+		mandelbrot(devPtr, window.width(), window.height(), AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX,
 				centerY, zoom, iterMult, doublePrecision);
 		unmapResouce(cudaPBOHandle);
 	}
