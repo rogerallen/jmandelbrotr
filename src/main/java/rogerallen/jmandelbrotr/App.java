@@ -169,7 +169,7 @@ public class App {
 		});
 
 		// resize
-		glfwSetFramebufferSizeCallback(window.id(), (long windowID, int width, int height) -> {
+		glfwSetFramebufferSizeCallback(window.id(), (windowID, width, height) -> {
 			if (width > 0 && height > 0 && (window.width() != width || window.height() != height)) {
 				window.width(width);
 				window.height(height);

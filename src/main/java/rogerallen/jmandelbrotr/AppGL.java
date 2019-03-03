@@ -311,7 +311,7 @@ public class AppGL {
 		float winTexWidthRatio = (float) window.width() / sharedTexWidth;
 		float winTexHeightRatio = (float) window.height() / sharedTexHeight;
 		if (window.resized()) {
-			System.out.println("HANDLED "+window);
+			//System.out.println("HANDLED "+window);
 			window.resizeHandled();
 
 			// anchor viewport to upper left corner (0, 0) to match the anchor on
