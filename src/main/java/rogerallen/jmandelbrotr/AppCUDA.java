@@ -77,7 +77,7 @@ public class AppCUDA {
 
         CUmodule module = new CUmodule();
         if (USE_REAL_TIME_COMPILE) {
-            String cudaPath = AppGL.RESOURCES_PREFIX + "mandelbrot.cu";
+            String cudaPath = App.RESOURCES_PREFIX + "mandelbrot.cu";
             if (compileCuda(module, cudaPath)) {
                 return true;
             }

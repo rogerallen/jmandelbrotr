@@ -103,8 +103,6 @@ import org.lwjgl.system.Callback;
 
 public class AppGL {
 
-    public static String RESOURCES_PREFIX = "";
-
     // private static GLCapabilities caps;
     private static Callback debugProc;
 
@@ -118,27 +116,17 @@ public class AppGL {
     public static int sharedTexWidth, sharedTexHeight;
 
     public static void init(AppWindow appWindow, int monitorWidth, int monitorHeight) throws IOException {
-        window = appWindow;
-        // FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
-        // If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
-        // resources/foo
-        // This is a hack workaround.
-        InputStream source_in_jar = Thread.currentThread().getContextClassLoader()
-                .getResourceAsStream("resources/mandelbrot.cu");
-        if (source_in_jar != null) {
-            RESOURCES_PREFIX = "resources/"; // JAR Compile
-        }
-        System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
 
         System.out.println("CUDA/GL Buffer size = " + monitorWidth + "x" + monitorHeight);
 
+        window = appWindow;
         /* caps = */ GL.createCapabilities();
         debugProc = GLUtil.setupDebugMessageCallback();
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
         initTexture(monitorWidth, monitorHeight);
         basicProg = new AppProgram(
-                RESOURCES_PREFIX + "basic_vert.glsl",
-                RESOURCES_PREFIX + "basic_frag.glsl");
+                App.RESOURCES_PREFIX + "basic_vert.glsl",
+                App.RESOURCES_PREFIX + "basic_frag.glsl");
         initVerts();
     }
 

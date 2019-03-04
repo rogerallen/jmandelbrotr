@@ -58,6 +58,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
@@ -73,6 +74,7 @@ import org.lwjgl.system.MemoryStack;
 import jcuda.runtime.JCuda;
 
 public class App {
+    public static String RESOURCES_PREFIX = "";
 
     private final String WINDOW_TITLE = "JMandelbrotr";
     private final int WINDOW_START_WIDTH = 800, WINDOW_START_HEIGHT = 800;
@@ -120,6 +122,19 @@ public class App {
 
         initGLFWWindow();
         initCallbacks();
+        
+        // FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
+        // If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
+        // resources/foo
+        // This is a hack workaround.
+        InputStream source_in_jar = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("resources/mandelbrot.cu");
+        if (source_in_jar != null) {
+            RESOURCES_PREFIX = "resources/"; // JAR Compile
+        }
+        System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
+
+        
         AppGL.init(window, monitorWidth, monitorHeight);
         boolean error = AppCUDA.init(window);
         return error;
