@@ -134,9 +134,9 @@ public class App {
         }
         System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
 
-        
+        // FIXME add errors for AppGL init
         AppGL.init(window, monitorWidth, monitorHeight);
-        boolean error = AppCUDA.init(window);
+        boolean error = AppCUDA.init(window, AppGL.sharedPbo());
         return error;
     }
 

@@ -24,22 +24,22 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class AppCUDA {
-
-    private static AppWindow window;
     // realtime compile or load ptx?
     private final static boolean USE_REAL_TIME_COMPILE = true;
+
+    private static AppWindow window;
+    private static AppPbo sharedPbo;
+    private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
 
     public static double centerX, centerY, zoom;
     public static int iterMult;
     public static boolean doublePrecision;
 
-    public static cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
-    private static CUfunction mandelbrotFloatKernel, mandelbrotDoubleKernel;
-
     // return true when there is an error
-    public static boolean init(AppWindow appWindow) throws IOException {
+    public static boolean init(AppWindow appWindow, AppPbo sharedPbo) throws IOException {
 
         window = appWindow;
+        AppCUDA.sharedPbo = sharedPbo;
 
         centerX = -0.5;
         centerY = 0.0;
@@ -68,12 +68,14 @@ public class AppCUDA {
         }
         // CUDA writes to the buffer, OpenGL reads, then this repeats.
         // So, add WriteDiscard flag to this buffer.
-        if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedPboId(),
+        cudaGraphicsResource cudaPBOHandle = new cudaGraphicsResource();
+        if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, sharedPbo.id(),
                 cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard)) != cudaError.cudaSuccess) {
-            System.err.println("ERROR: (" + errStr(err) + ") Failed to register buffer " + AppGL.sharedPboId());
+            System.err.println("ERROR: (" + errStr(err) + ") Failed to register buffer " + sharedPbo.id());
             System.err.println("Make sure that you are running graphics on NVIDIA GPU");
             return true;
         }
+        sharedPbo.cudaPBOHandle(cudaPBOHandle);
 
         CUmodule module = new CUmodule();
         if (USE_REAL_TIME_COMPILE) {
@@ -170,10 +172,10 @@ public class AppCUDA {
     }
 
     public static void render() {
-        CUdeviceptr devPtr = mapResouce(cudaPBOHandle);
+        CUdeviceptr devPtr = mapResouce(sharedPbo.cudaPBOHandle());
         mandelbrot(devPtr, window.width(), window.height(), AppGL.textureWidth(), AppGL.textureHeight(), centerX,
                 centerY, zoom, iterMult, doublePrecision);
-        unmapResouce(cudaPBOHandle);
+        unmapResouce(sharedPbo.cudaPBOHandle());
     }
 
     private static String errStr(int err) {

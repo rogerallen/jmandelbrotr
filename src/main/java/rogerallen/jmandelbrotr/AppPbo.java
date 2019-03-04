@@ -6,8 +6,11 @@ import static org.lwjgl.opengl.GL15.glBufferData;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
 import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
 
+import jcuda.runtime.cudaGraphicsResource;
+
 public class AppPbo {
     private int id;
+    private cudaGraphicsResource cudaPBOHandle;
     
     public AppPbo(int width, int height) {
         // Generate a buffer ID
@@ -22,6 +25,13 @@ public class AppPbo {
 
     public int id() {
         return id;
+    }
+
+    public cudaGraphicsResource cudaPBOHandle() {
+        return cudaPBOHandle;
+    }
+    public void cudaPBOHandle(cudaGraphicsResource cudaPBOHandle) {
+        this.cudaPBOHandle = cudaPBOHandle;
     }
 
 }

@@ -93,9 +93,9 @@ public class AppGL {
         float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
         verts = new AppVerts(basicProg.attrPosition(), coords, basicProg.attrTexCoords(), coords);
     }
-
-    public static int sharedPboId() {
-        return sharedPbo.id();
+    
+    public static AppPbo sharedPbo() {
+        return sharedPbo;
     }
 
     public static int textureWidth() {
