@@ -111,7 +111,8 @@ public class AppGL {
     private static AppWindow window;
 
     private static int verts;
-    private static int positionVbo, texCoordsVbo;
+    private static AppVbo positionVbo, texCoordsVbo;
+
     private static int basicProg;
     private static int basicProgAttrPosition;
     private static int basicProgAttrTexCoords;
@@ -161,28 +162,11 @@ public class AppGL {
     private static void initVerts() {
         verts = glGenVertexArrays();
         glBindVertexArray(verts);
-        positionVbo = glGenBuffers();
-        FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 4);
-        fb.put(0.0f).put(1.0f);
-        fb.put(1.0f).put(1.0f);
-        fb.put(0.0f).put(0.0f);
-        fb.put(1.0f).put(0.0f);
-        fb.flip();
-        glBindBuffer(GL_ARRAY_BUFFER, positionVbo);
-        glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(basicProgAttrPosition, 2, GL_FLOAT, false, 0, 0L);
-        glEnableVertexAttribArray(basicProgAttrPosition);
-        texCoordsVbo = glGenBuffers();
-        fb = BufferUtils.createFloatBuffer(2 * 4);
-        fb.put(0.0f).put(1.0f);
-        fb.put(1.0f).put(1.0f);
-        fb.put(0.0f).put(0.0f);
-        fb.put(1.0f).put(0.0f);
-        fb.flip();
-        glBindBuffer(GL_ARRAY_BUFFER, texCoordsVbo);
-        glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(basicProgAttrTexCoords, 2, GL_FLOAT, true, 0, 0L);
-        glEnableVertexAttribArray(basicProgAttrTexCoords);
+
+        float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+        positionVbo = new AppVbo(basicProgAttrPosition, coords);
+        texCoordsVbo = new AppVbo(basicProgAttrTexCoords, coords);
+
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
@@ -308,40 +292,26 @@ public class AppGL {
 	// @formatter:on
     public static void handleResize() {
         glViewport(0, 0, window.width(), window.height());
-        float winTexWidthRatio = (float) window.width() / sharedTexWidth;
-        float winTexHeightRatio = (float) window.height() / sharedTexHeight;
+        float wratio = (float) window.width() / sharedTexWidth;
+        float hratio = (float) window.height() / sharedTexHeight;
         if (window.resized()) {
             // System.out.println("HANDLED "+window);
             window.resizeHandled();
 
             // anchor viewport to upper left corner (0, 0) to match the anchor on
             // the sharedTexture surface. See picture above.
-            cameraToView.identity();
             float xpos = 1.0f, ypos = 1.0f;
             if (window.width() >= window.height()) {
                 ypos = (float) window.height() / (float) window.width();
             } else {
                 xpos = (float) window.width() / (float) window.height();
             }
+            cameraToView.identity();
             cameraToView.ortho(0.0f, xpos, ypos, 0.0f, -1, 1);
 
             // update on-screen triangles to reflect the aspect ratio change.
-            FloatBuffer fb = BufferUtils.createFloatBuffer(2 * 4);
-            fb.put(0.0f).put(ypos);
-            fb.put(xpos).put(ypos);
-            fb.put(0.0f).put(0.0f);
-            fb.put(xpos).put(0.0f);
-            fb.flip();
-            glBindBuffer(GL_ARRAY_BUFFER, positionVbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
-            fb = BufferUtils.createFloatBuffer(2 * 4);
-            fb.put(0.0f * winTexWidthRatio).put(1.0f * winTexHeightRatio);
-            fb.put(1.0f * winTexWidthRatio).put(1.0f * winTexHeightRatio);
-            fb.put(0.0f * winTexWidthRatio).put(0.0f * winTexHeightRatio);
-            fb.put(1.0f * winTexWidthRatio).put(0.0f * winTexHeightRatio);
-            fb.flip();
-            glBindBuffer(GL_ARRAY_BUFFER, texCoordsVbo);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
+            positionVbo.update(new float[] { 0.0f, ypos, xpos, ypos, 0.0f, 0.0f, xpos, 0.0f });
+            texCoordsVbo.update(new float[] { 0.0f, hratio, wratio, hratio, 0.0f, 0.0f, wratio, 0.0f });
         }
 
     }
