@@ -16,7 +16,9 @@ import org.lwjgl.BufferUtils;
 
 public class AppVbo {
     private int id;
+
     public AppVbo(int attr, float[] data) {
+        // Note that this requires glBindVertexArray is active.
         id = glGenBuffers();
         FloatBuffer fb = BufferUtils
                 .createFloatBuffer(data.length)
@@ -24,6 +26,7 @@ public class AppVbo {
                 .flip();
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
+        // FIXME: fixed to 2 float components
         glVertexAttribPointer(attr, 2, GL_FLOAT, false, 0, 0L);
         glEnableVertexAttribArray(attr);
     }

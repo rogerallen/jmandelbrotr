@@ -109,9 +109,7 @@ public class AppGL {
     private static Callback debugProc;
 
     private static AppWindow window;
-
-    private static int verts;
-    private static AppVbo positionVbo, texCoordsVbo;
+    private static AppVerts verts;
 
     private static int basicProg;
     private static int basicProgAttrPosition;
@@ -160,15 +158,10 @@ public class AppGL {
 	//     0     1 s texture coords
 	// @formatter:on
     private static void initVerts() {
-        verts = glGenVertexArrays();
-        glBindVertexArray(verts);
-
         float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
-        positionVbo = new AppVbo(basicProgAttrPosition, coords);
-        texCoordsVbo = new AppVbo(basicProgAttrTexCoords, coords);
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
+        verts = new AppVerts(
+                basicProgAttrPosition, coords, 
+                basicProgAttrTexCoords, coords);
     }
 
     private static ByteBuffer resizeBuffer(ByteBuffer buffer, int newCapacity) {
@@ -310,8 +303,8 @@ public class AppGL {
             cameraToView.ortho(0.0f, xpos, ypos, 0.0f, -1, 1);
 
             // update on-screen triangles to reflect the aspect ratio change.
-            positionVbo.update(new float[] { 0.0f, ypos, xpos, ypos, 0.0f, 0.0f, xpos, 0.0f });
-            texCoordsVbo.update(new float[] { 0.0f, hratio, wratio, hratio, 0.0f, 0.0f, wratio, 0.0f });
+            verts.positionUpdate(new float[] { 0.0f, ypos, xpos, ypos, 0.0f, 0.0f, xpos, 0.0f });
+            verts.texCoordsUpdate(new float[] { 0.0f, hratio, wratio, hratio, 0.0f, 0.0f, wratio, 0.0f });
         }
 
     }
@@ -323,7 +316,8 @@ public class AppGL {
         FloatBuffer fb = BufferUtils.createFloatBuffer(16);
         cameraToView.get(fb);
         glUniformMatrix4fv(basicProgUniCameraToView, false, fb);
-        glBindVertexArray(verts);
+        
+        verts.bind();
 
         // connect the pbo to the texture
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
@@ -332,7 +326,7 @@ public class AppGL {
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTexWidth, sharedTexHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        verts.draw();
 
         glBindVertexArray(0);
         glUseProgram(0);
