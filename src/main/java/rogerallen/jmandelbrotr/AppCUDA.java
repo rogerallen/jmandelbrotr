@@ -171,7 +171,7 @@ public class AppCUDA {
 
     public static void render() {
         CUdeviceptr devPtr = mapResouce(cudaPBOHandle);
-        mandelbrot(devPtr, window.width(), window.height(), AppGL.sharedTexWidth, AppGL.sharedTexHeight, centerX,
+        mandelbrot(devPtr, window.width(), window.height(), AppGL.textureWidth(), AppGL.textureHeight(), centerX,
                 centerY, zoom, iterMult, doublePrecision);
         unmapResouce(cudaPBOHandle);
     }

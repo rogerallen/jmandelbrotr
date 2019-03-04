@@ -109,21 +109,21 @@ public class AppGL {
     private static AppWindow window;
     private static AppVerts verts;
     private static AppProgram basicProg;
+    private static AppTexture sharedTex;
 
     private static Matrix4f cameraToView = new Matrix4f();
+    
+    public static int sharedBufID;
 
-    public static int sharedBufID, sharedTexID;
-    public static int sharedTexWidth, sharedTexHeight;
+    public static void init(AppWindow appWindow, int maxWidth, int maxHeight) throws IOException {
 
-    public static void init(AppWindow appWindow, int monitorWidth, int monitorHeight) throws IOException {
-
-        System.out.println("CUDA/GL Buffer size = " + monitorWidth + "x" + monitorHeight);
+        System.out.println("CUDA/GL Buffer size = " + maxWidth + "x" + maxHeight);
 
         window = appWindow;
         /* caps = */ GL.createCapabilities();
         debugProc = GLUtil.setupDebugMessageCallback();
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
-        initTexture(monitorWidth, monitorHeight);
+        initTexture(maxWidth, maxHeight);
         basicProg = new AppProgram(
                 App.RESOURCES_PREFIX + "basic_vert.glsl",
                 App.RESOURCES_PREFIX + "basic_frag.glsl");
@@ -193,26 +193,26 @@ public class AppGL {
         return buffer;
     }
 
-    private static void initTexture(int monitorWidth, int monitorHeight) throws IOException {
+    private static void initTexture(int maxWidth, int maxHeight) throws IOException {
         // Shared CUDA/GL texture
         // Shared OpenGL & CUDA buffer
         // Generate a buffer ID
         sharedBufID = glGenBuffers();
-        sharedTexWidth = monitorWidth;
-        sharedTexHeight = monitorHeight;
         // Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
         // Allocate data for the buffer
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, sharedTexWidth * sharedTexHeight * 4, GL_DYNAMIC_COPY);
+        // FIXME - try GL_DYNAMIC_DRAW
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, maxWidth * maxHeight * 4, GL_DYNAMIC_COPY);
 
         // Create a GL Texture
-        sharedTexID = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, sharedTexID);
-        // Allocate the texture memory.
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, sharedTexWidth, sharedTexHeight, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-        // Set filter mode
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        sharedTex = new AppTexture(maxWidth, maxHeight);
+    }
+    
+    public static int textureWidth() {
+        return sharedTex.width();
+    }
+    public static int textureHeight() {
+        return sharedTex.height();
     }
 
     // Create a colored single fullscreen triangle
@@ -230,8 +230,8 @@ public class AppGL {
 	// @formatter:on
     public static void handleResize() {
         glViewport(0, 0, window.width(), window.height());
-        float wratio = (float) window.width() / sharedTexWidth;
-        float hratio = (float) window.height() / sharedTexHeight;
+        float wratio = (float) window.width() / sharedTex.width();
+        float hratio = (float) window.height() / sharedTex.height();
         if (window.resized()) {
             // System.out.println("HANDLED "+window);
             window.resizeHandled();
@@ -264,9 +264,9 @@ public class AppGL {
 
         // connect the pbo to the texture
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedBufID);
-        glBindTexture(GL_TEXTURE_2D, sharedTexID);
-        // Since source parameter is NULL, Data is coming from a PBO, not host memory
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTexWidth, sharedTexHeight, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+        glBindTexture(GL_TEXTURE_2D, sharedTex.id());
+        // Since the pixels parameter (final one) is 0, Data is coming from a PBO, not host memory
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTex.width(), sharedTex.height(), GL_BGRA, GL_UNSIGNED_BYTE, 0);
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
         verts.draw();
