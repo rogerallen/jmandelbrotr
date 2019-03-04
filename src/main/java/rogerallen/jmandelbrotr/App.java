@@ -95,24 +95,19 @@ public class App {
     }
 
     public void run() {
-        System.out.println("JMandelbrotr");
-        System.out.println("Running LWJGL " + Version.getVersion());
-        System.out.println("Running GLFW " + GLFW_VERSION_MAJOR + "." + GLFW_VERSION_MINOR);
-        System.out.println("Running JCuda " + JCuda.CUDART_VERSION);
-        System.out.println("Press ESC to quit.");
-        try {
-            boolean error = init();
-            if (!error) {
-                loop();
-                destroy();
-            }
-        } catch (IOException e) {
-            System.err.println("ERROR: " + e);
+        System.out.println("JMandelbrotr - press ESC to quit.");
+        System.out.println("  LWJGL " + Version.getVersion());
+        System.out.println("  GLFW  " + GLFW_VERSION_MAJOR + "." + GLFW_VERSION_MINOR);
+        System.out.println("  JCuda " + JCuda.CUDART_VERSION);
+        boolean error = init();
+        if (!error) {
+            loop();
+            destroy();
         }
     }
 
     // return true if there is an error
-    private boolean init() throws IOException {
+    private boolean init() {
         switchFullscreen = false;
         isFullscreen = false;
         zoomOutMode = false;
@@ -122,7 +117,16 @@ public class App {
 
         initGLFWWindow();
         initCallbacks();
-        
+        fixupResourcePrefix();
+        boolean error = false;
+        if (error = AppGL.init(window, monitorWidth, monitorHeight, false)) {
+            return error;
+        }
+        error = AppCUDA.init(window, AppGL.sharedPbo());
+        return error;
+    }
+
+    private void fixupResourcePrefix() {
         // FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
         // If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
         // resources/foo
@@ -133,11 +137,6 @@ public class App {
             RESOURCES_PREFIX = "resources/"; // JAR Compile
         }
         System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
-
-        // FIXME add errors for AppGL init
-        AppGL.init(window, monitorWidth, monitorHeight);
-        boolean error = AppCUDA.init(window, AppGL.sharedPbo());
-        return error;
     }
 
     private void initCallbacks() {

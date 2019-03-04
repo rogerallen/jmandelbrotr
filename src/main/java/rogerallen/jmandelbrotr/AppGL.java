@@ -63,20 +63,27 @@ public class AppGL {
     private static AppPbo sharedPbo;
 
     // private static GLCapabilities caps;
-    private static Callback debugProc;
+    private static Callback debugProc = null;
 
     private static Matrix4f cameraToView = new Matrix4f();
 
-    public static void init(AppWindow appWindow, int maxWidth, int maxHeight) throws IOException {
+    public static boolean init(AppWindow appWindow, int maxWidth, int maxHeight, boolean debug) {
         window = appWindow;
         /* caps = */ GL.createCapabilities();
-        debugProc = GLUtil.setupDebugMessageCallback();
+        if(debug) {
+            debugProc = GLUtil.setupDebugMessageCallback();
+        }
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
         // Shared CUDA/GL pixel buffer
         sharedPbo = new AppPbo(maxWidth, maxHeight);
         // Create a GL Texture
         sharedTex = new AppTexture(maxWidth, maxHeight);
-        basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl", App.RESOURCES_PREFIX + "basic_frag.glsl");
+        try {
+            basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl", App.RESOURCES_PREFIX + "basic_frag.glsl");
+        } catch (IOException e) {
+            System.err.println("Error on shader setup: "+e);
+            return true;
+        }
         // Create a colored single fullscreen triangle
         // @formatter:off
         // t y
@@ -92,6 +99,7 @@ public class AppGL {
         // @formatter:on
         float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
         verts = new AppVerts(basicProg.attrPosition(), coords, basicProg.attrTexCoords(), coords);
+        return false;
     }
     
     public static AppPbo sharedPbo() {
@@ -157,7 +165,9 @@ public class AppGL {
     }
 
     public static void destroy() {
-        debugProc.free();
+        if(debugProc != null) {
+            debugProc.free();
+        }
     }
 
 }

@@ -36,7 +36,7 @@ public class AppCUDA {
     public static boolean doublePrecision;
 
     // return true when there is an error
-    public static boolean init(AppWindow appWindow, AppPbo sharedPbo) throws IOException {
+    public static boolean init(AppWindow appWindow, AppPbo sharedPbo) {
 
         window = appWindow;
         AppCUDA.sharedPbo = sharedPbo;
@@ -117,10 +117,16 @@ public class AppCUDA {
         return false;
     }
 
-    private static boolean compileCuda(CUmodule module, String filename) throws IOException {
+    private static boolean compileCuda(CUmodule module, String filename) {
         int err;
         System.out.println("Compiling cuda kernels...");
-        String programSourceCode = StandardCharsets.UTF_8.decode(AppUtils.ioResourceToByteBuffer(filename)).toString();
+        String programSourceCode;
+        try {
+            programSourceCode = StandardCharsets.UTF_8.decode(AppUtils.ioResourceToByteBuffer(filename)).toString();
+        } catch(IOException e) {
+            System.err.println("Error loading "+filename+" "+e);
+            return true;
+        }
         // Use the NVRTC to create a program by compiling the source code
         nvrtcProgram program = new nvrtcProgram();
         if ((err = nvrtcCreateProgram(program, programSourceCode, null, 0, null, null)) != cudaError.cudaSuccess) {
