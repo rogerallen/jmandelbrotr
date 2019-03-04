@@ -110,11 +110,7 @@ public class AppGL {
 
     private static AppWindow window;
     private static AppVerts verts;
-
-    private static int basicProg;
-    private static int basicProgAttrPosition;
-    private static int basicProgAttrTexCoords;
-    private static int basicProgUniCameraToView;
+    private static AppProgram basicProg;
 
     private static Matrix4f cameraToView = new Matrix4f();
 
@@ -140,7 +136,9 @@ public class AppGL {
         debugProc = GLUtil.setupDebugMessageCallback();
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
         initTexture(monitorWidth, monitorHeight);
-        initProgram();
+        basicProg = new AppProgram(
+                RESOURCES_PREFIX + "basic_vert.glsl",
+                RESOURCES_PREFIX + "basic_frag.glsl");
         initVerts();
     }
 
@@ -160,17 +158,19 @@ public class AppGL {
     private static void initVerts() {
         float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
         verts = new AppVerts(
-                basicProgAttrPosition, coords, 
-                basicProgAttrTexCoords, coords);
+                basicProg.attrPosition(), coords, 
+                basicProg.attrTexCoords(), coords);
     }
 
+    // FIXME move to buffer utils class
     private static ByteBuffer resizeBuffer(ByteBuffer buffer, int newCapacity) {
         ByteBuffer newBuffer = BufferUtils.createByteBuffer(newCapacity);
         buffer.flip();
         newBuffer.put(buffer);
         return newBuffer;
     }
-
+    
+    // FIXME move to buffer utils class
     public static ByteBuffer ioResourceToByteBuffer(String resource) throws IOException {
         int bufferSize = 8192;
         ByteBuffer buffer;
@@ -227,49 +227,6 @@ public class AppGL {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
-    private static int createShader(String resource, int type) throws IOException {
-        int shader = glCreateShader(type);
-        ByteBuffer source = ioResourceToByteBuffer(resource);
-        PointerBuffer strings = BufferUtils.createPointerBuffer(1);
-        IntBuffer lengths = BufferUtils.createIntBuffer(1);
-        strings.put(0, source);
-        lengths.put(0, source.remaining());
-        glShaderSource(shader, strings, lengths);
-        glCompileShader(shader);
-        int compiled = glGetShaderi(shader, GL_COMPILE_STATUS);
-        String shaderLog = glGetShaderInfoLog(shader);
-        if (shaderLog.trim().length() > 0) {
-            System.err.println(shaderLog);
-        }
-        if (compiled == 0) {
-            throw new AssertionError("Could not compile shader");
-        }
-        return shader;
-    }
-
-    private static void initProgram() throws IOException {
-        int program = glCreateProgram();
-        int vshader = createShader(RESOURCES_PREFIX + "basic_vert.glsl", GL_VERTEX_SHADER);
-        int fshader = createShader(RESOURCES_PREFIX + "basic_frag.glsl", GL_FRAGMENT_SHADER);
-        glAttachShader(program, vshader);
-        glAttachShader(program, fshader);
-        glLinkProgram(program);
-        int linked = glGetProgrami(program, GL_LINK_STATUS);
-        String programLog = glGetProgramInfoLog(program);
-        if (programLog.trim().length() > 0)
-            System.err.println(programLog);
-        if (linked == 0)
-            throw new AssertionError("Could not link program");
-        glUseProgram(program);
-        int texLocation = glGetUniformLocation(program, "texture");
-        glUniform1i(texLocation, 0);
-        basicProgAttrPosition = glGetAttribLocation(program, "position");
-        basicProgAttrTexCoords = glGetAttribLocation(program, "texCoords");
-        basicProgUniCameraToView = glGetUniformLocation(program, "cameraToView");
-        glUseProgram(0);
-        basicProg = program;
-    }
-
     // Create a colored single fullscreen triangle
     // @formatter:off
 	// t y
@@ -312,10 +269,8 @@ public class AppGL {
     public static void render() {
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glUseProgram(basicProg);
-        FloatBuffer fb = BufferUtils.createFloatBuffer(16);
-        cameraToView.get(fb);
-        glUniformMatrix4fv(basicProgUniCameraToView, false, fb);
+        basicProg.use();
+        basicProg.updateCameraToView(cameraToView);
         
         verts.bind();
 
