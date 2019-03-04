@@ -46,14 +46,8 @@ import static org.lwjgl.opengl.GL20.glUseProgram;
 import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
@@ -74,85 +68,30 @@ public class AppGL {
     private static Matrix4f cameraToView = new Matrix4f();
 
     public static void init(AppWindow appWindow, int maxWidth, int maxHeight) throws IOException {
-
-        System.out.println("CUDA/GL Buffer size = " + maxWidth + "x" + maxHeight);
-
         window = appWindow;
         /* caps = */ GL.createCapabilities();
         debugProc = GLUtil.setupDebugMessageCallback();
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
-        initTexture(maxWidth, maxHeight);
-        basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl", App.RESOURCES_PREFIX + "basic_frag.glsl");
-        initVerts();
-    }
-
-    // Create a colored single fullscreen triangle
-    // @formatter:off
-	// t y
-	// 0 0 C--*--D triangle_strip ABCD
-	//     |\....|
-	//     |.\...|
-	//     *..*..*
-	//     |...\.|
-	//     |....\|
-	// 1 1 A--*--B
-	//     0     1 x position coords
-	//     0     1 s texture coords
-	// @formatter:on
-    private static void initVerts() {
-        float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
-        verts = new AppVerts(basicProg.attrPosition(), coords, basicProg.attrTexCoords(), coords);
-    }
-
-    // FIXME move to buffer utils class
-    private static ByteBuffer resizeBuffer(ByteBuffer buffer, int newCapacity) {
-        ByteBuffer newBuffer = BufferUtils.createByteBuffer(newCapacity);
-        buffer.flip();
-        newBuffer.put(buffer);
-        return newBuffer;
-    }
-
-    // FIXME move to buffer utils class
-    public static ByteBuffer ioResourceToByteBuffer(String resource) throws IOException {
-        int bufferSize = 8192;
-        ByteBuffer buffer;
-        URL url = Thread.currentThread().getContextClassLoader().getResource(resource);
-        File file = new File(url.getFile());
-        if (file.isFile()) {
-            FileInputStream fis = new FileInputStream(file);
-            FileChannel fc = fis.getChannel();
-            buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-            fc.close();
-            fis.close();
-        } else {
-            buffer = BufferUtils.createByteBuffer(bufferSize);
-            InputStream source = url.openStream();
-            if (source == null)
-                throw new FileNotFoundException(resource);
-            try {
-                byte[] buf = new byte[8192];
-                while (true) {
-                    int bytes = source.read(buf, 0, buf.length);
-                    if (bytes == -1)
-                        break;
-                    if (buffer.remaining() < bytes)
-                        buffer = resizeBuffer(buffer, buffer.capacity() * 2);
-                    buffer.put(buf, 0, bytes);
-                }
-                buffer.flip();
-            } finally {
-                source.close();
-            }
-        }
-        return buffer;
-    }
-
-    private static void initTexture(int maxWidth, int maxHeight) throws IOException {
         // Shared CUDA/GL pixel buffer
         sharedPbo = new AppPbo(maxWidth, maxHeight);
-
         // Create a GL Texture
         sharedTex = new AppTexture(maxWidth, maxHeight);
+        basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl", App.RESOURCES_PREFIX + "basic_frag.glsl");
+        // Create a colored single fullscreen triangle
+        // @formatter:off
+        // t y
+        // 0 0 C--*--D triangle_strip ABCD
+        //     |\....|
+        //     |.\...|
+        //     *..*..*
+        //     |...\.|
+        //     |....\|
+        // 1 1 A--*--B
+        //     0     1 x position coords
+        //     0     1 s texture coords
+        // @formatter:on
+        float[] coords = { 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+        verts = new AppVerts(basicProg.attrPosition(), coords, basicProg.attrTexCoords(), coords);
     }
 
     public static int sharedPboId() {
@@ -167,25 +106,11 @@ public class AppGL {
         return sharedTex.height();
     }
 
-    // Create a colored single fullscreen triangle
-    // @formatter:off
-	// t y
-	// 0 0 C--*--D triangle_strip ABCD
-	//     |\....|
-	//     |.\...|
-	//     *..*..*
-	//     |...\.|
-	//     |....\|
-	// 1 1 A--*--B
-	//     0     1 x position coords
-	//     0     1 s texture coords
-	// @formatter:on
     public static void handleResize() {
         glViewport(0, 0, window.width(), window.height());
         float wratio = (float) window.width() / sharedTex.width();
         float hratio = (float) window.height() / sharedTex.height();
         if (window.resized()) {
-            // System.out.println("HANDLED "+window);
             window.resizeHandled();
 
             // anchor viewport to upper left corner (0, 0) to match the anchor on
@@ -225,13 +150,14 @@ public class AppGL {
         glUseProgram(0);
     }
 
-    public static void destroy() {
-        debugProc.free();
-    }
-
-    public static ByteBuffer getPixels() {
+    public static ByteBuffer readPixels() {
         ByteBuffer buffer = BufferUtils.createByteBuffer(window.width() * window.height() * 4);
         glReadPixels(0, 0, window.width(), window.height(), GL_RGBA, GL_UNSIGNED_BYTE, buffer);
         return buffer;
     }
+
+    public static void destroy() {
+        debugProc.free();
+    }
+
 }

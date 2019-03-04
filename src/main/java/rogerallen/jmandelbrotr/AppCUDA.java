@@ -118,7 +118,7 @@ public class AppCUDA {
     private static boolean compileCuda(CUmodule module, String filename) throws IOException {
         int err;
         System.out.println("Compiling cuda kernels...");
-        String programSourceCode = StandardCharsets.UTF_8.decode(AppGL.ioResourceToByteBuffer(filename)).toString();
+        String programSourceCode = StandardCharsets.UTF_8.decode(AppUtils.ioResourceToByteBuffer(filename)).toString();
         // Use the NVRTC to create a program by compiling the source code
         nvrtcProgram program = new nvrtcProgram();
         if ((err = nvrtcCreateProgram(program, programSourceCode, null, 0, null, null)) != cudaError.cudaSuccess) {

@@ -302,7 +302,7 @@ public class App {
         if (saveImage) {
             System.out.println("write save.png\n");
             saveImage = false;
-            ByteBuffer buffer = AppGL.getPixels();
+            ByteBuffer buffer = AppGL.readPixels();
             // TODO - could read into the buffer, then in another thread save the file to
             // avoid refresh delays.
             File file = new File("save.png");

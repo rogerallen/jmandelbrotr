@@ -60,7 +60,7 @@ public class AppProgram {
 
     private static int createShader(String resource, int type) throws IOException {
         int shader = glCreateShader(type);
-        ByteBuffer source = AppGL.ioResourceToByteBuffer(resource);
+        ByteBuffer source = AppUtils.ioResourceToByteBuffer(resource);
         PointerBuffer strings = BufferUtils.createPointerBuffer(1);
         IntBuffer lengths = BufferUtils.createIntBuffer(1);
         strings.put(0, source);
