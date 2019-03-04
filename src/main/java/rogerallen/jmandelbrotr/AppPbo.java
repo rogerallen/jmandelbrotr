@@ -1,6 +1,6 @@
 package rogerallen.jmandelbrotr;
 
-import static org.lwjgl.opengl.GL15.GL_DYNAMIC_COPY;
+import static org.lwjgl.opengl.GL15.GL_DYNAMIC_DRAW;
 import static org.lwjgl.opengl.GL15.glBindBuffer;
 import static org.lwjgl.opengl.GL15.glBufferData;
 import static org.lwjgl.opengl.GL15.glGenBuffers;
@@ -17,9 +17,8 @@ public class AppPbo {
         id = glGenBuffers();
         // Make this the current UNPACK buffer aka PBO (Pixel Buffer Object)
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, id);
-        // Allocate data for the buffer
-        // TODO - try GL_DYNAMIC_DRAW
-        glBufferData(GL_PIXEL_UNPACK_BUFFER, width * height * 4, GL_DYNAMIC_COPY);
+        // Allocate data for the buffer. DYNAMIC (modified repeatedly) DRAW (not reading from GL)
+        glBufferData(GL_PIXEL_UNPACK_BUFFER, width * height * 4, GL_DYNAMIC_DRAW);
 
     }
 
