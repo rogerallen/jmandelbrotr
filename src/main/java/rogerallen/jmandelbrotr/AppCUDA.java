@@ -68,9 +68,9 @@ public class AppCUDA {
         }
         // CUDA writes to the buffer, OpenGL reads, then this repeats.
         // So, add WriteDiscard flag to this buffer.
-        if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedBufID,
+        if ((err = JCuda.cudaGraphicsGLRegisterBuffer(cudaPBOHandle, AppGL.sharedPboId(),
                 cudaGraphicsRegisterFlags.cudaGraphicsRegisterFlagsWriteDiscard)) != cudaError.cudaSuccess) {
-            System.err.println("ERROR: (" + errStr(err) + ") Failed to register buffer " + AppGL.sharedBufID);
+            System.err.println("ERROR: (" + errStr(err) + ") Failed to register buffer " + AppGL.sharedPboId());
             System.err.println("Make sure that you are running graphics on NVIDIA GPU");
             return true;
         }
