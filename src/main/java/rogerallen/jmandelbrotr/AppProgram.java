@@ -30,10 +30,10 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 
 public class AppProgram {
-    private static int id;
-    private static int attrPosition;
-    private static int attrTexCoords;
-    private static int uniCameraToView;
+    private int id;
+    private int attrPosition;
+    private int attrTexCoords;
+    private int uniCameraToView;
 
     // FIXME constructor should not throw exception.
     public AppProgram(String vertProgramPath, String fragProgramPath) throws IOException {
@@ -58,7 +58,7 @@ public class AppProgram {
         glUseProgram(0);
     }
 
-    private static int createShader(String resource, int type) throws IOException {
+    private int createShader(String resource, int type) throws IOException {
         int shader = glCreateShader(type);
         ByteBuffer source = AppUtils.ioResourceToByteBuffer(resource);
         PointerBuffer strings = BufferUtils.createPointerBuffer(1);
@@ -78,14 +78,18 @@ public class AppProgram {
         return shader;
     }
 
-    public void use() {
+    public void bind() {
         glUseProgram(id);
+    }
+
+    public void unbind() {
+        glUseProgram(0);
     }
 
     public void updateCameraToView(Matrix4f cameraToView) {
         FloatBuffer fb = BufferUtils.createFloatBuffer(16);
         cameraToView.get(fb);
-        glUniformMatrix4fv(uniCameraToView, false, fb);        
+        glUniformMatrix4fv(uniCameraToView, false, fb);
     }
 
     public int attrPosition() {

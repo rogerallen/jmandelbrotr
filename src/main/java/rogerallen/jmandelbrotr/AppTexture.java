@@ -15,13 +15,14 @@ import static org.lwjgl.opengl.GL12.GL_BGRA;
 public class AppTexture {
     private int id;
     private int width, height;
-    
+
     public AppTexture(int width, int height) {
         id = glGenTextures();
         this.width = width;
         this.height = height;
         glBindTexture(GL_TEXTURE_2D, id);
-        // Allocate the texture memory.  This will be filled in by the PBO during rendering
+        // Allocate the texture memory. This will be filled in by the PBO during
+        // rendering
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
         // Set filter mode
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

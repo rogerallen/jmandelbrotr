@@ -9,35 +9,40 @@ import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 public class AppVerts {
     private int id;
-    
+
     private static AppVbo positionVbo, texCoordsVbo;
-    
+
     private int numVerts;
-    
-    public AppVerts(int posAttr, float[] posCoords, int texAttr, float [] texCoords) {
+
+    public AppVerts(int posAttr, float[] posCoords, int texAttr, float[] texCoords) {
         id = glGenVertexArrays();
         glBindVertexArray(id);
         positionVbo = new AppVbo(posAttr, posCoords);
         texCoordsVbo = new AppVbo(texAttr, texCoords);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-        // FIXME: our VBOs are alls 2-component.
-        numVerts = posCoords.length/2;
+        // NOTE our VBOs are alls 2-component.
+        numVerts = posCoords.length / 2;
     }
 
-    public void positionUpdate(float [] newCoords) {
+    public void positionUpdate(float[] newCoords) {
         positionVbo.update(newCoords);
     }
-    
-    public void texCoordsUpdate(float [] newCoords) {
+
+    public void texCoordsUpdate(float[] newCoords) {
         texCoordsVbo.update(newCoords);
     }
-    
+
     public void bind() {
         glBindVertexArray(id);
     }
-    
+
+    public void unbind() {
+        glBindVertexArray(0);
+    }
+
     public void draw() {
         glDrawArrays(GL_TRIANGLE_STRIP, 0, numVerts);
     }
+
 }

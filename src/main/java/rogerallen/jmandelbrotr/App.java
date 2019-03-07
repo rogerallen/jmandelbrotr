@@ -79,6 +79,7 @@ public class App {
     private final String WINDOW_TITLE = "JMandelbrotr";
     private final int WINDOW_START_WIDTH = 800, WINDOW_START_HEIGHT = 800;
     private AppWindow window;
+    private AppMandelbrot mandelbrot;
 
     private boolean switchFullscreen;
     private boolean isFullscreen;
@@ -118,12 +119,18 @@ public class App {
         initGLFWWindow();
         initCallbacks();
         fixupResourcePrefix();
-        boolean error = false;
-        if (error = AppGL.init(window, monitorWidth, monitorHeight, false)) {
-            return error;
+        if (AppGL.init(window, monitorWidth, monitorHeight, false)) {
+            return true;
         }
-        error = AppCUDA.init(window, AppGL.sharedPbo());
-        return error;
+        if (AppCUDA.setDevice()) {
+            return true;
+        }
+        mandelbrot = new AppMandelbrot(window, AppGL.sharedPbo());
+        if (mandelbrot.init()) {
+            return true;
+        }
+
+        return false;
     }
 
     private void fixupResourcePrefix() {
@@ -148,10 +155,10 @@ public class App {
                     glfwSetWindowShouldClose(windowID, true);
                     break;
                 case GLFW_KEY_D:
-                    AppCUDA.doublePrecision = true;
+                    mandelbrot.doublePrecision(true);
                     break;
                 case GLFW_KEY_S:
-                    AppCUDA.doublePrecision = false;
+                    mandelbrot.doublePrecision(false);
                     break;
                 case GLFW_KEY_F:
                     switchFullscreen = true;
@@ -160,20 +167,20 @@ public class App {
                     zoomOutMode = true;
                     break;
                 case GLFW_KEY_1:
-                    AppCUDA.iterMult = 1;
+                    mandelbrot.iterMult(1);
                     break;
                 case GLFW_KEY_2:
-                    AppCUDA.iterMult = 2;
+                    mandelbrot.iterMult(2);
                     break;
                 case GLFW_KEY_3:
-                    AppCUDA.iterMult = 3;
+                    mandelbrot.iterMult(3);
                     break;
                 case GLFW_KEY_4:
-                    AppCUDA.iterMult = 4;
+                    mandelbrot.iterMult(4);
                     break;
                 case GLFW_KEY_P:
-                    System.out.println("Center = " + AppCUDA.centerX + ", " + AppCUDA.centerY);
-                    System.out.println("Zoom = " + AppCUDA.zoom);
+                    System.out.println("Center = " + mandelbrot.centerX() + ", " + mandelbrot.centerY());
+                    System.out.println("Zoom = " + mandelbrot.zoom());
                     break;
                 case GLFW_KEY_W:
                     saveImage = true;
@@ -197,8 +204,8 @@ public class App {
                     glfwGetCursorPos(windowID, mouseBufX, mouseBufY);
                     mouseStartX = mouseBufX.get(0);
                     mouseStartY = mouseBufY.get(0);
-                    centerStartX = AppCUDA.centerX;
-                    centerStartY = AppCUDA.centerY;
+                    centerStartX = mandelbrot.centerX();
+                    centerStartY = mandelbrot.centerY();
                     mouseDown = true;
                 } else if (action == GLFW_RELEASE) {
                     mouseDown = false;
@@ -210,9 +217,9 @@ public class App {
         glfwSetScrollCallback(window.id(), (windowID, xoffset, yoffset) -> {
             double zoomFactor = Math.abs(/* yoffset */ 1.1);
             if (yoffset > 0) {
-                AppCUDA.zoom *= zoomFactor;
+                mandelbrot.zoomMul(zoomFactor);
             } else {
-                AppCUDA.zoom /= zoomFactor;
+                mandelbrot.zoomDiv(zoomFactor);
             }
         });
     }
@@ -273,8 +280,8 @@ public class App {
         }
 
         if (zoomOutMode) {
-            AppCUDA.zoom /= 1.1;
-            if (AppCUDA.zoom < 0.5) {
+            mandelbrot.zoomDiv(1.1);
+            if (mandelbrot.zoom() < 0.5) {
                 zoomOutMode = false;
             }
         }
@@ -287,15 +294,15 @@ public class App {
             double dy = y - mouseStartY;
             double pixels_per_mspace;
             if (window.width() > window.height()) {
-                pixels_per_mspace = window.width() * AppCUDA.zoom;
+                pixels_per_mspace = window.width() * mandelbrot.zoom();
             } else {
-                pixels_per_mspace = window.height() * AppCUDA.zoom;
+                pixels_per_mspace = window.height() * mandelbrot.zoom();
             }
             double mspace_per_pixel = 2.0 / pixels_per_mspace;
             double center_delta_x = dx * mspace_per_pixel;
             double center_delta_y = dy * mspace_per_pixel;
-            AppCUDA.centerX = centerStartX - center_delta_x;
-            AppCUDA.centerY = centerStartY - center_delta_y;
+            mandelbrot.centerX(centerStartX - center_delta_x);
+            mandelbrot.centerY(centerStartY - center_delta_y);
         }
 
         if (saveImage) {
@@ -331,7 +338,7 @@ public class App {
             glfwPollEvents();
             AppGL.handleResize();
             update();
-            AppCUDA.render();
+            mandelbrot.render();
             AppGL.render();
             glfwSwapBuffers(window.id()); // swap the color buffers
         }

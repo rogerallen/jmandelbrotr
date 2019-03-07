@@ -41,10 +41,6 @@ import static org.lwjgl.opengl.GL11.glReadPixels;
 import static org.lwjgl.opengl.GL11.glTexSubImage2D;
 import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL12.GL_BGRA;
-import static org.lwjgl.opengl.GL15.glBindBuffer;
-import static org.lwjgl.opengl.GL20.glUseProgram;
-import static org.lwjgl.opengl.GL21.GL_PIXEL_UNPACK_BUFFER;
-import static org.lwjgl.opengl.GL30.glBindVertexArray;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -70,7 +66,7 @@ public class AppGL {
     public static boolean init(AppWindow appWindow, int maxWidth, int maxHeight, boolean debug) {
         window = appWindow;
         /* caps = */ GL.createCapabilities();
-        if(debug) {
+        if (debug) {
             debugProc = GLUtil.setupDebugMessageCallback();
         }
         glClearColor(1.0f, 1.0f, 0.5f, 0.0f);
@@ -79,9 +75,10 @@ public class AppGL {
         // Create a GL Texture
         sharedTex = new AppTexture(maxWidth, maxHeight);
         try {
-            basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl", App.RESOURCES_PREFIX + "basic_frag.glsl");
+            basicProg = new AppProgram(App.RESOURCES_PREFIX + "basic_vert.glsl",
+                    App.RESOURCES_PREFIX + "basic_frag.glsl");
         } catch (IOException e) {
-            System.err.println("Error on shader setup: "+e);
+            System.err.println("Error on shader setup: " + e);
             return true;
         }
         // Create a colored single fullscreen triangle
@@ -101,7 +98,7 @@ public class AppGL {
         verts = new AppVerts(basicProg.attrPosition(), coords, basicProg.attrTexCoords(), coords);
         return false;
     }
-    
+
     public static AppPbo sharedPbo() {
         return sharedPbo;
     }
@@ -144,18 +141,18 @@ public class AppGL {
 
         // copy the CUDA-updated pixel buffer to the texture. Since the TexSubImage
         // pixels parameter (final one) is 0, Data is coming from a PBO, not host memory
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, sharedPbo.id());
+        sharedPbo.bind();
         glBindTexture(GL_TEXTURE_2D, sharedTex.id());
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, sharedTex.width(), sharedTex.height(), GL_BGRA, GL_UNSIGNED_BYTE, 0);
 
-        basicProg.use();
+        basicProg.bind();
         basicProg.updateCameraToView(cameraToView);
         verts.bind();
         verts.draw();
 
-        glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        glBindVertexArray(0);
-        glUseProgram(0);
+        verts.unbind();
+        sharedPbo.unbind();
+        basicProg.unbind();
     }
 
     public static ByteBuffer readPixels() {
@@ -165,7 +162,7 @@ public class AppGL {
     }
 
     public static void destroy() {
-        if(debugProc != null) {
+        if (debugProc != null) {
             debugProc.free();
         }
     }

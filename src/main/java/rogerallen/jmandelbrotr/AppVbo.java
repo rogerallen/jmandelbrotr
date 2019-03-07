@@ -20,22 +20,16 @@ public class AppVbo {
     public AppVbo(int attr, float[] data) {
         // Note that this requires glBindVertexArray is active.
         id = glGenBuffers();
-        FloatBuffer fb = BufferUtils
-                .createFloatBuffer(data.length)
-                .put(data)
-                .flip();
+        FloatBuffer fb = (FloatBuffer) BufferUtils.createFloatBuffer(data.length).put(data).flip();
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
-        // FIXME: fixed to 2 float components
+        // NOTE: fixed to 2 float components
         glVertexAttribPointer(attr, 2, GL_FLOAT, false, 0, 0L);
         glEnableVertexAttribArray(attr);
     }
-    
-    public void update(float [] data) {
-        FloatBuffer fb = BufferUtils
-                .createFloatBuffer(data.length)
-                .put(data)
-                .flip();        
+
+    public void update(float[] data) {
+        FloatBuffer fb = (FloatBuffer) BufferUtils.createFloatBuffer(data.length).put(data).flip();
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
     }
