@@ -29,12 +29,28 @@ import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 
+/**
+ * OpenGL Shader Program handling code.
+ * 
+ * This shader is fixed to be a simple 2D position & texcoord vertex shader &
+ * single texture-loading fragment shader.
+ * 
+ * @author rallen
+ *
+ */
 public class AppProgram {
     private int id;
     private int attrPosition;
     private int attrTexCoords;
     private int uniCameraToView;
 
+    /**
+     * Load, compile & setup the attributes & uniform value for this shader.
+     * 
+     * @param vertProgramPath
+     * @param fragProgramPath
+     * @throws IOException
+     */
     // FIXME constructor should not throw exception.
     public AppProgram(String vertProgramPath, String fragProgramPath) throws IOException {
         id = glCreateProgram();
@@ -58,6 +74,14 @@ public class AppProgram {
         glUseProgram(0);
     }
 
+    /**
+     * Load & compile a single shader file
+     * 
+     * @param resource path to the resource
+     * @param type     type of shader (VS, or FS)
+     * @return shader ID
+     * @throws IOException
+     */
     private int createShader(String resource, int type) throws IOException {
         int shader = glCreateShader(type);
         ByteBuffer source = AppUtils.ioResourceToByteBuffer(resource);
@@ -78,24 +102,41 @@ public class AppProgram {
         return shader;
     }
 
+    /**
+     * bind this program so OpenGL will use it.
+     */
     public void bind() {
         glUseProgram(id);
     }
 
+    /**
+     * unbind this program so OpenGL will not use it.
+     */
     public void unbind() {
         glUseProgram(0);
     }
 
+    /**
+     * update the camera-to-view matrix uniform.
+     * 
+     * @param cameraToView
+     */
     public void updateCameraToView(Matrix4f cameraToView) {
         FloatBuffer fb = BufferUtils.createFloatBuffer(16);
         cameraToView.get(fb);
         glUniformMatrix4fv(uniCameraToView, false, fb);
     }
 
+    /**
+     * @return attribute position ID for the Vertex Buffer Object
+     */
     public int attrPosition() {
         return attrPosition;
     }
 
+    /**
+     * @return attribute texCoord ID for the Vertex Buffer Object
+     */
     public int attrTexCoords() {
         return attrTexCoords;
     }

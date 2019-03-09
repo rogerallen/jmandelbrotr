@@ -17,13 +17,30 @@ import jcuda.runtime.JCuda;
 import jcuda.runtime.cudaDeviceProp;
 import jcuda.runtime.cudaError;
 
+/**
+ * Methods related to compiling .cu files or loading .ptx files & accessing
+ * routines within them.
+ * 
+ * @author rallen
+ *
+ */
 public class AppCUDAProgram {
     CUmodule module;
 
+    /**
+     * constructor just nulls module.
+     */
     public AppCUDAProgram() {
         module = null;
     }
 
+    /**
+     * Compile .cu file or load ptx file and update module.
+     * 
+     * @param filePath - .cu or .ptx file path.
+     * @param compile  - compile .cu (true) or load .ptx (false)
+     * @return true if error
+     */
     public boolean setupModule(String filePath, boolean compile) {
         assert (module == null);
         module = new CUmodule();
@@ -39,7 +56,14 @@ public class AppCUDAProgram {
         return false;
     }
 
-    // given aFunction name, store in aKernel. Return true if error.
+    /**
+     * Take in aFunction name and store in aKernel. AKernel must be a reference to a
+     * previously-constructed CUfunction.
+     * 
+     * @param aFunction - function name inside the module
+     * @param aKernel   - on exit, will contain reference to aFunction.
+     * @return true if error
+     */
     public boolean getFunction(String aFunction, CUfunction aKernel) {
         assert (module != null);
         assert (aKernel != null);
@@ -51,16 +75,28 @@ public class AppCUDAProgram {
         return false;
     }
 
-    private boolean loadPtx(String ptxPath) {
+    /**
+     * load a ptx file into module.
+     * 
+     * @param filename is the path to the ptx file.
+     * @return true if error
+     */
+    private boolean loadPtx(String filename) {
         int err;
         System.out.println("Loading ptx directly...");
-        if ((err = JCudaDriver.cuModuleLoad(module, ptxPath)) != cudaError.cudaSuccess) {
-            System.err.println("ERROR: (" + AppCUDA.errStr(err) + ") failed to find " + ptxPath);
+        if ((err = JCudaDriver.cuModuleLoad(module, filename)) != cudaError.cudaSuccess) {
+            System.err.println("ERROR: (" + AppCUDA.errStr(err) + ") failed to find " + filename);
             return true;
         }
         return false;
     }
 
+    /**
+     * compile a cuda file & load into module.
+     * 
+     * @param filename is the path to the cuda file.
+     * @return true if error
+     */
     private boolean compileCuda(String filename) {
         int err;
         System.out.println("Compiling cuda kernels...");

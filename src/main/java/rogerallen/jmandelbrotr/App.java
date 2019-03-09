@@ -73,6 +73,23 @@ import org.lwjgl.system.MemoryStack;
 
 import jcuda.runtime.JCuda;
 
+/**
+ * The App Class is the main entry point and LWJGL+GLFW handler.
+ * 
+ * There are 3 main subclasses used in this top class
+ * 
+ * 1) the window class is a container for window state
+ * 
+ * 2) the mandelbrot class is a container for the CUDA code that creates the
+ * Mandelbrot colors inside a pixel buffer object.
+ * 
+ * 3) the AppGL static class is a container for the OpenGL rendering code that
+ * takes the Mandelbrot colors and renders them to a textured triangle. Should
+ * this be static? Hmm, going to think about that.
+ * 
+ * @author rallen@gmail.com
+ *
+ */
 public class App {
     public static String RESOURCES_PREFIX = "";
 
@@ -91,10 +108,16 @@ public class App {
     private double mouseStartX, mouseStartY, centerStartX, centerStartY;
     DoubleBuffer mouseBufX, mouseBufY;
 
+    /**
+     * main entry point to start the App.
+     */
     public static void main(String[] args) {
         new App().run();
     }
 
+    /**
+     * App main loop
+     */
     public void run() {
         System.out.println("JMandelbrotr - press ESC to quit.");
         System.out.println("  LWJGL " + Version.getVersion());
@@ -107,7 +130,11 @@ public class App {
         }
     }
 
-    // return true if there is an error
+    /**
+     * initialize GLFW, AppGL, CUDA & the Mandelbrot class.
+     * 
+     * @return true if there is an error
+     */
     private boolean init() {
         switchFullscreen = false;
         isFullscreen = false;
@@ -133,11 +160,12 @@ public class App {
         return false;
     }
 
+    /**
+     * FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
+     * If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
+     * resources/foo This is a hack workaround.
+     */
     private void fixupResourcePrefix() {
-        // FIXME -- I don't know how to configure Eclipse/Maven to do the right thing.
-        // If I run in Eclipse, I load files as foo. If I run in a jar, I load files as
-        // resources/foo
-        // This is a hack workaround.
         InputStream source_in_jar = Thread.currentThread().getContextClassLoader()
                 .getResourceAsStream("resources/mandelbrot.cu");
         if (source_in_jar != null) {
@@ -146,6 +174,9 @@ public class App {
         System.out.println("RESOURCES_PREFIX = \"" + RESOURCES_PREFIX + "\"");
     }
 
+    /**
+     * setup keyboard, mouse & window-resize callbacks.
+     */
     private void initCallbacks() {
         // keys
         glfwSetKeyCallback(window.id(), (windowID, key, scancode, action, mods) -> {
@@ -224,6 +255,9 @@ public class App {
         });
     }
 
+    /**
+     * Initialize GLFW window handling & AppWindow class.
+     */
     private void initGLFWWindow() {
         GLFWErrorCallback.createPrint(System.err).set();
 
@@ -260,7 +294,13 @@ public class App {
         glfwShowWindow(window.id());
     }
 
+    /**
+     * update internal state during main loop.
+     */
     private void update() {
+
+        AppGL.handleResize();
+
         if (switchFullscreen) {
             switchFullscreen = false;
             if (isFullscreen) {
@@ -333,20 +373,26 @@ public class App {
         }
     }
 
+    /**
+     * the inner loop of GLFW. Poll for events, update & render.
+     */
     private void loop() {
         while (!glfwWindowShouldClose(window.id())) {
             glfwPollEvents();
-            AppGL.handleResize();
             update();
-            mandelbrot.render();
-            AppGL.render();
-            glfwSwapBuffers(window.id()); // swap the color buffers
+            mandelbrot.render(); // CUDA updated mandelbrot buffer
+            AppGL.render(); // OpenGL renders that buffer
+            glfwSwapBuffers(window.id());
         }
     }
 
+    /**
+     * take down what we setup
+     */
     private void destroy() {
         glfwFreeCallbacks(window.id());
         glfwDestroyWindow(window.id());
+        // TODO review if any CUDA things need to be destroyed.
         AppGL.destroy();
         glfwTerminate();
         glfwSetErrorCallback(null).free();

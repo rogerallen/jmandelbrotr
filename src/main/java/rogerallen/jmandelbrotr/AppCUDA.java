@@ -4,8 +4,19 @@ import jcuda.runtime.JCuda;
 import jcuda.runtime.cudaError;
 import jcuda.runtime.cudaGLDeviceList;
 
+/**
+ * AppCUDA class for some simple CUDA utility functions
+ * 
+ * @author rallen
+ *
+ */
 public class AppCUDA {
 
+    /**
+     * set CUDA device to the first one. FIXME -- this should be more flexible.
+     * 
+     * @return true on error
+     */
     public static boolean setDevice() {
         int err;
         // find the first GL device & use that.
@@ -28,6 +39,12 @@ public class AppCUDA {
         return false;
     }
 
+    /**
+     * Convert an err code intoa CUDA error name.
+     * 
+     * @param err
+     * @return a helpful error string
+     */
     public static String errStr(int err) {
         return JCuda.cudaGetErrorName(err) + "=" + err;
     }

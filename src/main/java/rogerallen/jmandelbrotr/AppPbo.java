@@ -14,10 +14,24 @@ import jcuda.runtime.cudaError;
 import jcuda.runtime.cudaGraphicsRegisterFlags;
 import jcuda.runtime.cudaGraphicsResource;
 
+/**
+ * Pixel-buffer Object (PBO) Handling. CUDA writes to the buffer, OpenGL reads
+ * from it. When OpenGL reads it, it expects it to be a BGRA unsigned byte
+ * format buffer.
+ * 
+ * @author rallen
+ *
+ */
 public class AppPbo {
     private int id;
     private cudaGraphicsResource cudaPBOHandle;
 
+    /**
+     * create RGBA unsigned byte pixel buffer object
+     * 
+     * @param width
+     * @param height
+     */
     public AppPbo(int width, int height) {
         // Generate a buffer ID
         id = glGenBuffers();
@@ -30,6 +44,11 @@ public class AppPbo {
 
     }
 
+    /**
+     * register this buffer so CUDA can use it. This happens once at the start.
+     * 
+     * @return true on error
+     */
     public boolean registerBuffer() {
         int err;
         // CUDA writes to the buffer, OpenGL reads, then this repeats.
@@ -45,8 +64,14 @@ public class AppPbo {
         return false;
     }
 
+    /**
+     * map the PBO as a graphics resource so CUDA can write into it.
+     * 
+     * @return pointer to the PBO on the device.
+     */
     public CUdeviceptr mapGraphicsResource() {
         assert (cudaPBOHandle != null);
+        // TODO - consider moving these externally? Should we be doing new at 60Hz?
         CUgraphicsResource cuResource = new CUgraphicsResource(cudaPBOHandle);
         CUdeviceptr basePointer = new CUdeviceptr();
         int err;
@@ -61,6 +86,10 @@ public class AppPbo {
         return basePointer;
     }
 
+    /**
+     * unmap the PBO so that OpenGL can read from it.
+     */
+    // FIXME -- add error handling
     public void unmapGraphicsResource() {
         assert (cudaPBOHandle != null);
         CUgraphicsResource cuResource = new CUgraphicsResource(cudaPBOHandle);
@@ -71,10 +100,16 @@ public class AppPbo {
         }
     }
 
+    /**
+     * bind the PBO for OpenGL's use.
+     */
     public void bind() {
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, this.id);
     }
 
+    /**
+     * unbind the PBO so OpenGL does not use it.
+     */
     public void unbind() {
         glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
     }

@@ -14,12 +14,26 @@ import java.nio.FloatBuffer;
 
 import org.lwjgl.BufferUtils;
 
+/**
+ * Vertex Buffer Object (VBO) container class.
+ * 
+ * @author rallen
+ *
+ */
 public class AppVbo {
     private int id;
+    private int originalLength;
 
+    /**
+     * Constructor for VBO (requires that glBindVertexArray is active)
+     * 
+     * @param attr is the index of this data for the Vertex Shader
+     * @param data is the float array of incoming data.
+     */
     public AppVbo(int attr, float[] data) {
         // Note that this requires glBindVertexArray is active.
         id = glGenBuffers();
+        originalLength = data.length;
         FloatBuffer fb = (FloatBuffer) BufferUtils.createFloatBuffer(data.length).put(data).flip();
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferData(GL_ARRAY_BUFFER, fb, GL_DYNAMIC_DRAW);
@@ -28,7 +42,12 @@ public class AppVbo {
         glEnableVertexAttribArray(attr);
     }
 
+    /**
+     * Overwrite the VBO with new data.  Size must be the same as what was constructed.
+     * @param data the float array of new data.
+     */
     public void update(float[] data) {
+        assert(data.length == originalLength);
         FloatBuffer fb = (FloatBuffer) BufferUtils.createFloatBuffer(data.length).put(data).flip();
         glBindBuffer(GL_ARRAY_BUFFER, id);
         glBufferSubData(GL_ARRAY_BUFFER, 0, fb);
